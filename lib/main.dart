@@ -8,6 +8,8 @@ import 'package:stylclick/shared/constants/strings.dart';
 import 'package:stylclick/shared/utils/helpers.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
 
+import 'package:stylclick/core/services/api_service.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initialize();
@@ -46,6 +48,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     load();
+    ApiService.instance.warmUpBackend();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -73,7 +76,7 @@ class _MyAppState extends State<MyApp> {
     ]);
 
     return ScreenUtilInit(
-      designSize: Size(logicalWidth(), logicalHeight()),
+      designSize: const Size(375, 812), // Use a standard design size instead of querying window physical size before first frame
       builder: (BuildContext context, Widget? child) => MaterialApp(
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
@@ -82,6 +85,9 @@ class _MyAppState extends State<MyApp> {
         home: const SplashScreen(),
         theme: ThemeData(
           fontFamily: 'Cinta',
+          drawerTheme: DrawerThemeData(
+            width: (320.w).clamp(280.0, 420.0),
+          ),
         ),
       ),
     );

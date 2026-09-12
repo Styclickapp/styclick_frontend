@@ -26,7 +26,7 @@ class _WalkthroughScreenState extends State<WalkthroughScreen> {
     ),
     WalkthroughItem(
       title: 'Connect with Tailors',
-      description: 'Find the best designers and tailors to bring your visions to life.',
+      description: 'Find the best tailors to bring your visions to life.',
       image: loginLogo,
     ),
     WalkthroughItem(

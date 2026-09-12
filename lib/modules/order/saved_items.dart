@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:nb_utils/nb_utils.dart';
@@ -9,11 +10,16 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/modules/order/saved_order.dart';
 import 'package:stylclick/modules/wallet/transaction_history.dart';
 import 'package:stylclick/modules/wallet/wallet.dart';
 import 'package:stylclick/modules/vendor/index.dart';
 import 'package:stylclick/modules/auth/login.dart';
+import 'package:stylclick/modules/details.dart';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:stylclick/core/services/saved_items_service.dart';
 
 class SavedItemsPage extends StatefulWidget {
   const SavedItemsPage({Key? key}) : super(key: key);
@@ -23,21 +29,26 @@ class SavedItemsPage extends StatefulWidget {
 }
 
 class _SavedItemsPageState extends State<SavedItemsPage> {
-  GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  TextEditingController _searchController = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  final List<String> images = [
-    catFemaleAsoEbi,
-    catMaleAsoEbi,
-    catAnkara,
-    catReadyToWear,
-    catMaterials,
-    catSenator,
-    catLace,
-    catFemaleAsoEbi,
-    catMaleAsoEbi,
-  ];
+  @override
+  void initState() {
+    super.initState();
+    SavedItemsService.instance.itemsNotifier.addListener(_onSavedItemsChanged);
+  }
+
+  @override
+  void dispose() {
+    SavedItemsService.instance.itemsNotifier.removeListener(_onSavedItemsChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSavedItemsChanged() {
+    if (mounted) setState(() {});
+  }
 
   void _openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
@@ -49,9 +60,15 @@ class _SavedItemsPageState extends State<SavedItemsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final allItems = SavedItemsService.instance.items;
+    final savedItems = _searchQuery.isEmpty
+        ? allItems
+        : allItems.where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            i.storeName.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
@@ -61,17 +78,22 @@ class _SavedItemsPageState extends State<SavedItemsPage> {
             // Header
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(gradient: brandGradient),
-              padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 16.h, bottom: 24.h),
+              color: cream,
+              padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
               child: Row(
                 children: [
                   InkWell(
-                    onTap: _openDrawer,
-                    child: Image.asset(
-                      menuIcon,
-                      height: 24.h,
-                      width: 24.w,
-                      color: Colors.white,
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        finish(context);
+                      }
+                    },
+                    child: Icon(
+                      FeatherIcons.arrowLeft,
+                      color: ink,
+                      size: 24.sp,
                     ),
                   ),
                   const Spacer(),
@@ -79,10 +101,10 @@ class _SavedItemsPageState extends State<SavedItemsPage> {
                     'Saved Items',
                     style: TextStyle(
                       fontFamily: 'Cinta',
-                      fontSize: 26.sp,
-                      color: Colors.white,
+                      fontSize: 18.sp,
+                      color: ink,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -1.0,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const Spacer(),
@@ -92,7 +114,7 @@ class _SavedItemsPageState extends State<SavedItemsPage> {
                       notificationIcon,
                       height: 24.h,
                       width: 24.w,
-                      color: Colors.white,
+                      color: ink,
                     ),
                   ),
                 ],
@@ -133,245 +155,157 @@ class _SavedItemsPageState extends State<SavedItemsPage> {
             24.height,
             // Grid
             Expanded(
-              child: MasonryGridView.count(
-                padding: EdgeInsets.symmetric(horizontal: 17.w),
-                crossAxisCount: 2,
-                mainAxisSpacing: 8.w,
-                crossAxisSpacing: 8.w,
-                itemCount: images.length,
-                itemBuilder: (context, index) {
-                  double imageHeight = index.isEven ? 200.h : 260.h;
-                  
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16.r),
-                      color: white,
-                      border: Border.all(color: sand),
-                      boxShadow: [
-                        BoxShadow(
-                          color: ink.withOpacity(0.03),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    padding: EdgeInsets.all(8.w),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12.r),
-                          child: Image.asset(
-                            images[index],
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: imageHeight,
+              child: savedItems.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(FeatherIcons.heart, size: 48.sp, color: textLight.withOpacity(0.4)),
+                          16.height,
+                          Text(
+                            _searchQuery.isNotEmpty ? 'No items match "$_searchQuery"' : 'No Saved Items Yet',
+                            style: TextStyle(fontFamily: 'Cinta', fontSize: 16.sp, color: ink, fontWeight: FontWeight.bold),
                           ),
-                        ),
-                        12.height,
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                index % 2 == 0 ? 'Lace Asoebi' : 'Ankara Style',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontFamily: 'Cinta', 
-                                  fontSize: 14.sp,
-                                  color: ink,
-                                  fontWeight: FontWeight.w700,
+                          8.height,
+                          Text(
+                            'Items you save will appear here.',
+                            style: TextStyle(fontFamily: 'Cinta', fontSize: 13.sp, color: textLight),
+                          ),
+                        ],
+                      ),
+                    )
+                  : MasonryGridView.count(
+                      padding: EdgeInsets.symmetric(horizontal: 17.w),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 8.w,
+                      crossAxisSpacing: 8.w,
+                      itemCount: savedItems.length,
+                      itemBuilder: (context, index) {
+                        final item = savedItems[index];
+                        double imageHeight = index.isEven ? 200.h : 260.h;
+                        final img = item.imagePath;
+
+                        return InkWell(
+                          onTap: () {
+                            CategoryDetails(
+                              name: item.name,
+                              price: item.price,
+                              storeName: item.storeName,
+                              imagePaths: [img],
+                              category: item.category,
+                              vendorType: item.vendorType,
+                              vendorId: item.vendorId,
+                              vendorEmail: item.vendorEmail,
+                              vendorPhone: item.vendorPhone,
+                              vendorAddress: item.vendorAddress,
+                              vendorBio: item.vendorBio,
+                              vendorSpecialization: item.vendorSpecialization,
+                              vendorBanner: item.vendorBanner,
+                              vendorAvatar: item.vendorAvatar,
+                              description: item.description,
+                            ).launch(context);
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16.r),
+                              color: white,
+                              border: Border.all(color: sand),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: ink.withOpacity(0.03),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                              ),
+                              ],
                             ),
-                            Image.asset(
-                              favoriteIcon,
-                              height: 18.h,
-                              width: 18.w,
-                              color: primary,
+                            padding: EdgeInsets.all(8.w),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12.r),
+                                  child: img.startsWith('http://') || img.startsWith('https://')
+                                      ? CachedNetworkImage(
+                                          imageUrl: img,
+                                          fit: BoxFit.cover,
+                                          width: double.infinity,
+                                          height: imageHeight,
+                                          placeholder: (_, __) => Container(height: imageHeight, color: sand),
+                                          errorWidget: (_, __, ___) => Image.asset(catFemaleAsoEbi, fit: BoxFit.cover, height: imageHeight),
+                                        )
+                                      : (img.startsWith('assets/')
+                                          ? Image.asset(img, fit: BoxFit.cover, width: double.infinity, height: imageHeight)
+                                          : (File(img).existsSync()
+                                              ? Image.file(File(img), fit: BoxFit.cover, width: double.infinity, height: imageHeight)
+                                              : Image.asset(catFemaleAsoEbi, fit: BoxFit.cover, width: double.infinity, height: imageHeight))),
+                                ),
+                                12.height,
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: 'Cinta',
+                                          fontSize: 14.sp,
+                                          color: ink,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        SavedItemsService.instance.removeSavedItem(item.id);
+                                        toast('Removed from Saved Items');
+                                      },
+                                      child: Image.asset(
+                                        favoriteIcon,
+                                        height: 18.h,
+                                        width: 18.w,
+                                        color: primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                6.height,
+                                 Row(
+                                   children: [
+                                     Icon(
+                                       Icons.star_rounded,
+                                       color: (item.rating != null && item.rating != '0.0 (0)' && item.rating != '0' && item.rating != '0.0') ? Colors.amber : textLight.withOpacity(0.3),
+                                       size: 14.sp,
+                                     ),
+                                     2.width,
+                                     Text(
+                                       (item.rating != null && item.rating != '0.0 (0)' && item.rating != '0' && item.rating != '0.0')
+                                           ? item.rating!
+                                           : '0.0 (0)',
+                                       style: GoogleFonts.montserrat(
+                                         fontSize: 11.sp,
+                                         fontWeight: FontWeight.w700,
+                                         color: (item.rating != null && item.rating != '0.0 (0)' && item.rating != '0' && item.rating != '0.0') ? ink : textLight,
+                                       ),
+                                     ),
+                                   ],
+                                 ),
+                                8.height,
+                                Text(
+                                  'NGN ${item.price.toStringAsFixed(0)}',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 13.sp,
+                                    color: primary,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                        6.height,
-                        Row(
-                          children: [
-                            Icon(Icons.star_rounded, color: Colors.amber, size: 14.sp),
-                            2.width,
-                            Text(
-                              '4.8',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w700,
-                                color: ink,
-                              ),
-                            ),
-                            4.width,
-                            Text(
-                              '(13)',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w500,
-                                color: textLight,
-                              ),
-                            ),
-                          ],
-                        ),
-                        8.height,
-                        Text(
-                          'NGN 45,000',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 13.sp,
-                            color: primary,
-                            fontWeight: FontWeight.w900,
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primary.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 35.r,
-                      backgroundColor: white,
-                      backgroundImage: const AssetImage(defaultUserImage),
-                    ),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: TextStyle(fontFamily: 'Cinta', 
-                          color: ink,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      4.height,
-                      Text(
-                        'DASHBOARD',
-                        style: GoogleFonts.montserrat(
-                          color: primary,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'Home', () {
-                    currentIndex = 0;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Catalogue', () {
-                    currentIndex = 1;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Account', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedItemsPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Become a vendor', () => VendorPage().launch(context)),
-                  _buildDrawerItem(context, 'Share & Earn', () => const ShareEarnPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Settings', () => const SettingsPage().launch(context)),
-                  _buildDrawerItem(context, 'Help & Support', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Logout', () {
-                    setValue('home', false);
-                    LoginScreen().launch(context, isNewTask: true);
-                  }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              width: 10.w,
-              height: 10.h,
-              decoration: BoxDecoration(
-                color: sand.withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            20.width,
-            Text(
-              title,
-              style: TextStyle(fontFamily: 'Cinta', 
-                fontSize: 16.sp,
-                color: ink,
-                fontWeight: FontWeight.w500,
-              ),
             ),
           ],
         ),

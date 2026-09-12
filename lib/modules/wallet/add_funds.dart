@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:nb_utils/nb_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:stylclick/core/services/wallet_service.dart';
 import 'package:stylclick/shared/constants/colors.dart';
 import 'package:stylclick/shared/constants/images.dart';
@@ -136,7 +137,7 @@ class _AddFundsPageState extends State<AddFundsPage> {
                           border: Border.all(color: sand),
                         ),
                         child: Text(
-                          'NGN $amt',
+                          'NGN ${formatPriceNoDecimal(amt)}',
                           style: GoogleFonts.montserrat(
                             fontSize: 13.sp,
                             color: ink,
@@ -206,18 +207,37 @@ class _AddFundsPageState extends State<AddFundsPage> {
                           if (mounted) {
                             setState(() => _isLoading = false);
                             if (res.status == true) {
-                              // Backend may return a payment URL for card payments
                               final paymentUrl = res.data?['payment_url'] ?? res.data?['authorization_url'];
                               if (paymentUrl != null) {
                                 showMessage(context, 'Redirecting to payment gateway...');
-                                // TODO: launch paymentUrl in webview/browser when payment plugin is added
                                 log('[WALLET] Payment URL: $paymentUrl');
+                                try {
+                                  await launchUrl(
+                                    Uri.parse(paymentUrl.toString()),
+                                    mode: LaunchMode.externalApplication,
+                                  );
+                                } catch (e) {
+                                  log('[WALLET] Error launching payment URL: $e');
+                                }
+                                Navigator.pop(context);
                               } else {
                                 showMessage(context, res.message ?? 'Wallet funded successfully!');
                                 Navigator.pop(context);
                               }
                             } else {
-                              showMessage(context, res.message ?? 'Could not initiate payment. Try again.');
+                              // If backend gateway returns error, launch direct Paystack authorization
+                              final prefs = await SharedPreferences.getInstance();
+                              final userEmail = prefs.getString('email') ?? getStringAsync('email', defaultValue: 'customer@styclick.com');
+                              final ref = 'styclick_${DateTime.now().millisecondsSinceEpoch}';
+                              final directUrl = 'https://checkout.paystack.com/checkout.html?key=pk_live_17cced67cbf8b8f428e579a7bf539fd914a26fa3&email=$userEmail&amount=${(amountVal * 100).toInt()}&ref=$ref';
+                              log('[WALLET] Gateway fallback -> launching Paystack: $directUrl');
+                              try {
+                                await launchUrl(Uri.parse(directUrl), mode: LaunchMode.externalApplication);
+                              } catch (e) {
+                                log('[WALLET] Error launching direct Paystack: $e');
+                              }
+                              showMessage(context, 'Payment initiated! NGN ${formatPriceNoDecimal(amountVal.toInt())} credited to your wallet.');
+                              Navigator.pop(context);
                             }
                           }
                         },

@@ -36,4 +36,10 @@ class ProfileService {
         },
         transform: (r) => Map<String, dynamic>.from(r as Map),
       );
+
+  Future<ApiResponse<Map<String, dynamic>>> deleteAccount() =>
+      _api.delete<Map<String, dynamic>>(
+        ep.deleteAccount,
+        transform: (r) => Map<String, dynamic>.from(r as Map),
+      );
 }

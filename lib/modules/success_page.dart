@@ -3,15 +3,16 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nb_utils/nb_utils.dart';
 import 'package:stylclick/shared/constants/colors.dart';
-import 'package:stylclick/shared/constants/strings.dart';
 
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/modules/vendor/application_preview.dart';
 
 class SuccessPage extends StatelessWidget {
   final String? message;
   final String? medium;
+  final bool isVendorRegistration;
 
-  const SuccessPage({Key? key, this.message, this.medium}) : super(key: key);
+  const SuccessPage({Key? key, this.message, this.medium, this.isVendorRegistration = false}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +43,9 @@ class SuccessPage extends StatelessWidget {
               ),
               16.height,
               Text(
-                message ?? 'Your request has been processed successfully.',
+                isVendorRegistration
+                    ? 'Your application has been sent to the Admin for review'
+                    : (message ?? 'Your request has been processed successfully.'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontFamily: 'Cinta', 
                   fontSize: 16.sp,
@@ -51,11 +54,11 @@ class SuccessPage extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              if (medium != null) 32.height,
-              if (medium != null)
+              if (medium != null && !isVendorRegistration) 32.height,
+              if (medium != null && !isVendorRegistration)
                 TextButton(
                   onPressed: () {
-                    // Logic to view email or medium
+                    const ApplicationPreviewPage().launch(context);
                   },
                   child: Text(
                     'View $medium',

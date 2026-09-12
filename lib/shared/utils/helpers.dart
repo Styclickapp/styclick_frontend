@@ -1,8 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+
 
 bool isValidEmail(String email) {
   return RegExp(
@@ -41,3 +40,30 @@ double deviceHeight(BuildContext context) {
 double deviceWidth(BuildContext context) {
   return MediaQuery.of(context).size.width;
 }
+
+String formatPrice(dynamic amount) {
+  if (amount == null) return '0.00';
+  final formatter = NumberFormat("#,##0.00", "en_US");
+  if (amount is num) {
+    return formatter.format(amount);
+  }
+  final parsed = double.tryParse(amount.toString());
+  if (parsed != null) {
+    return formatter.format(parsed);
+  }
+  return amount.toString();
+}
+
+String formatPriceNoDecimal(dynamic amount) {
+  if (amount == null) return '0';
+  final formatter = NumberFormat("#,##0", "en_US");
+  if (amount is num) {
+    return formatter.format(amount);
+  }
+  final parsed = double.tryParse(amount.toString());
+  if (parsed != null) {
+    return formatter.format(parsed);
+  }
+  return amount.toString();
+}
+

@@ -1,12 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:nb_utils/nb_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:stylclick/core/services/vendor_service.dart';
 import 'package:stylclick/modules/success_page.dart';
 import 'package:stylclick/shared/constants/colors.dart';
-import 'package:stylclick/shared/constants/images.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 import 'package:stylclick/shared/widgets/custom_textfield.dart';
@@ -38,8 +39,32 @@ class _BecomeRiderState extends State<BecomeRider> {
   String? _licenseImagePath;
   String? _insuranceImagePath;
   String? _ninImagePath;
+  final _imagePicker = ImagePicker();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSession();
+  }
+
+  void _loadUserSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final fName = prefs.getString('fName') ?? getStringAsync('fName');
+    final lName = prefs.getString('lName') ?? getStringAsync('lName');
+    final prefEmail = prefs.getString('email') ?? getStringAsync('email');
+    final prefPhone = prefs.getString('phone') ?? getStringAsync('phone');
+    final prefAddress = prefs.getString('address') ?? getStringAsync('address');
+
+    setState(() {
+      final full = '$fName $lName'.trim();
+      if (full.isNotEmpty) _fullName.text = full;
+      if (prefEmail.isNotEmpty) _email.text = prefEmail;
+      if (prefPhone.isNotEmpty) _phone.text = prefPhone;
+      if (prefAddress.isNotEmpty) _address.text = prefAddress;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,10 +251,9 @@ class _BecomeRiderState extends State<BecomeRider> {
           'Driver\'s License',
           'Front & Back View',
           _licenseImagePath,
-          () {
-            setState(() {
-              _licenseImagePath = bizImage; // Mock uploaded file using bizImage
-            });
+          () async {
+            final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+            if (picked != null) setState(() => _licenseImagePath = picked.path);
           },
         ),
         16.height,
@@ -237,10 +261,9 @@ class _BecomeRiderState extends State<BecomeRider> {
           'Vehicle Insurance/Reg',
           'Valid Documents',
           _insuranceImagePath,
-          () {
-            setState(() {
-              _insuranceImagePath = sewingMachine; // Mock uploaded file using sewingMachine
-            });
+          () async {
+            final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+            if (picked != null) setState(() => _insuranceImagePath = picked.path);
           },
         ),
         16.height,
@@ -248,10 +271,9 @@ class _BecomeRiderState extends State<BecomeRider> {
           'NIN/ID Card',
           'National Identification',
           _ninImagePath,
-          () {
-            setState(() {
-              _ninImagePath = profileAvatar; // Mock uploaded file using profileAvatar
-            });
+          () async {
+            final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+            if (picked != null) setState(() => _ninImagePath = picked.path);
           },
         ),
         32.height,
@@ -304,7 +326,7 @@ class _BecomeRiderState extends State<BecomeRider> {
   }
 
   Widget _buildTextField(
-    String hint,
+    String label,
     TextEditingController controller,
     IconData icon, {
     TextInputType type = TextInputType.text,
@@ -312,17 +334,16 @@ class _BecomeRiderState extends State<BecomeRider> {
   }) {
     return CustomTextField(
       controller: controller,
-      hintText: hint,
+      label: label,
+      hintText: 'Enter your ${label.toLowerCase()}',
       textInputType: type,
-      prefixIcon: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w),
-        child: Icon(icon, color: sand, size: 18.sp),
-      ),
       validator: validator,
     );
   }
 
-  Widget _buildUploadField(String label, String sub, String? imagePath, VoidCallback onTap) {
+  Widget _buildUploadField(String label, String sub, String? imagePath, VoidCallback onTap, {bool isCac = false}) {
+    final bool hasFile = imagePath != null && imagePath.isNotEmpty;
+    final String fileName = hasFile ? imagePath.split(RegExp(r'[/\\]')).last : '';
     return InkWell(
       onTap: onTap,
       child: DottedBorder(
@@ -335,26 +356,33 @@ class _BecomeRiderState extends State<BecomeRider> {
           width: double.infinity,
           padding: EdgeInsets.all(20.w),
           decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(16.r)),
-          child: imagePath != null
+          child: hasFile
               ? Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: Image.asset(
-                        imagePath,
-                        height: 50.h,
-                        width: 50.w,
-                        fit: BoxFit.cover,
+                    if (isCac)
+                      Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(color: primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.r)),
+                        child: Icon(FeatherIcons.fileText, color: primary, size: 24.sp),
+                      )
+                    else
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8.r),
+                        child: Image.file(
+                          File(imagePath),
+                          height: 50.h,
+                          width: 50.w,
+                          fit: BoxFit.cover,
+                        ),
                       ),
-                    ),
                     16.width,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(label, style: GoogleFonts.montserrat(fontSize: 15.sp, color: ink, fontWeight: FontWeight.w700)),
+                          Text(label, style: GoogleFonts.montserrat(fontSize: 14.sp, color: ink, fontWeight: FontWeight.w700)),
                           4.height,
-                          Text('File uploaded successfully', style: TextStyle(fontFamily: cinta, fontSize: 12.sp, color: successColor)),
+                          Text(isCac ? fileName : 'File uploaded successfully', style: TextStyle(fontFamily: 'Cinta', fontSize: 12.sp, color: isCac ? primary : successColor), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -365,9 +393,9 @@ class _BecomeRiderState extends State<BecomeRider> {
                   children: [
                     Icon(FeatherIcons.camera, color: primary, size: 28.sp),
                     12.height,
-                    Text(label, style: GoogleFonts.montserrat(fontSize: 15.sp, color: ink, fontWeight: FontWeight.w700)),
+                    Text(label, style: TextStyle(fontFamily: 'Cinta', fontSize: 15.sp, color: ink, fontWeight: FontWeight.w700)),
                     4.height,
-                    Text(sub, style: TextStyle(fontFamily: cinta, fontSize: 12.sp, color: textLight)),
+                    Text(sub, style: TextStyle(fontFamily: 'Cinta', fontSize: 12.sp, color: textLight)),
                   ],
                 ),
         ),
@@ -405,16 +433,17 @@ class _BecomeRiderState extends State<BecomeRider> {
               ? null
               : () async {
                   if (_formKey.currentState!.validate()) {
+
                     if (_currentStep == 2) {
-                      if (_licenseImagePath == null) {
-                        toast("Please upload Driver's License");
+                      if (_licenseImagePath == null || _licenseImagePath!.isEmpty) {
+                        toast('Please upload Driver\'s License');
                         return;
                       }
-                      if (_insuranceImagePath == null) {
+                      if (_insuranceImagePath == null || _insuranceImagePath!.isEmpty) {
                         toast('Please upload Vehicle Insurance/Reg');
                         return;
                       }
-                      if (_ninImagePath == null) {
+                      if (_ninImagePath == null || _ninImagePath!.isEmpty) {
                         toast('Please upload NIN/ID Card');
                         return;
                       }
@@ -433,16 +462,28 @@ class _BecomeRiderState extends State<BecomeRider> {
                         vehicleType: _vehicleType,
                         vehicleMake: _vehicleMake.text.trim(),
                         plateNumber: _plateNumber.text.trim(),
+                        certificate: _licenseImagePath,
                       );
                       if (mounted) {
                         setState(() => _isLoading = false);
-                        if (res.status == true) {
+                        if (res.status != true) {
+                          toast(res.message ?? 'Failed to submit application');
+                          return;
+                        }
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('is_vendor', false);
+                        await prefs.setString('vendor_status', 'pending');
+                        await prefs.setString('vendor_type', 'rider');
+                        await prefs.setString('shop_name', _fullName.text.trim());
+                        setValue('is_vendor', false);
+                        setValue('vendor_status', 'pending');
+                        setValue('vendor_type', 'rider');
+                        if (mounted) {
                           const SuccessPage(
-                            medium: 'Application Sent',
-                            message: 'Your rider profile is being reviewed. We will contact you shortly.',
+                            isVendorRegistration: true,
+                            medium: 'Application Sent to Moderation',
+                            message: 'Your rider application has been submitted to the Moderation Dashboard for admin review and approval.',
                           ).launch(context);
-                        } else {
-                          showMessage(context, res.message ?? 'Submission failed. Please try again.');
                         }
                       }
                     }

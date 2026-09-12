@@ -8,11 +8,13 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/modules/order/saved_items.dart';
 import 'package:stylclick/modules/wallet/transaction_history.dart';
 import 'package:stylclick/modules/wallet/wallet.dart';
 import 'package:stylclick/modules/vendor/index.dart';
 import 'package:stylclick/modules/auth/login.dart';
+import 'package:stylclick/modules/details.dart';
 
 class SavedOrderPage extends StatefulWidget {
   const SavedOrderPage({Key? key}) : super(key: key);
@@ -26,53 +28,7 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
   TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
 
-  final List<Map<String, dynamic>> _allOrders = [
-    {
-      'id': '#SC-4290',
-      'title': 'Premium Swiss Ankara',
-      'price': 'NGN 120,000',
-      'date': '28 Apr 2024',
-      'status': 'Processing',
-      'image': maleAsoebi,
-      'items': '4 Items'
-    },
-    {
-      'id': '#SC-4285',
-      'title': 'Lace Asoebi Set',
-      'price': 'NGN 85,000',
-      'date': '25 Apr 2024',
-      'status': 'Delivered',
-      'image': maleAsoebi,
-      'items': '2 Items'
-    },
-    {
-      'id': '#SC-4280',
-      'title': 'Senator Style - Navy',
-      'price': 'NGN 45,000',
-      'date': '20 Apr 2024',
-      'status': 'Delivered',
-      'image': maleAsoebi,
-      'items': '1 Item'
-    },
-    {
-      'id': '#SC-4275',
-      'title': 'Corporate Suit Bundle',
-      'price': 'NGN 210,000',
-      'date': '15 Apr 2024',
-      'status': 'Cancelled',
-      'image': maleAsoebi,
-      'items': '3 Items'
-    },
-    {
-      'id': '#SC-4268',
-      'title': 'Agbada Embroidery',
-      'price': 'NGN 150,000',
-      'date': '10 Apr 2024',
-      'status': 'Delivered',
-      'image': maleAsoebi,
-      'items': '2 Items'
-    },
-  ];
+  final List<Map<String, dynamic>> _allOrders = [];
 
   List<Map<String, dynamic>> get _filteredOrders {
     if (_searchQuery.isEmpty) return _allOrders;
@@ -94,7 +50,7 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
@@ -104,17 +60,22 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
             // Header
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(gradient: brandGradient),
-              padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 16.h, bottom: 24.h),
+              color: cream,
+              padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
               child: Row(
                 children: [
                   InkWell(
-                    onTap: _openDrawer,
-                    child: Image.asset(
-                      menuIcon,
-                      height: 24.h,
-                      width: 24.w,
-                      color: Colors.white,
+                    onTap: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        finish(context);
+                      }
+                    },
+                    child: Icon(
+                      FeatherIcons.arrowLeft,
+                      color: ink,
+                      size: 24.sp,
                     ),
                   ),
                   const Spacer(),
@@ -122,10 +83,10 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
                     'Order History',
                     style: TextStyle(
                       fontFamily: 'Cinta',
-                      fontSize: 26.sp,
-                      color: Colors.white,
+                      fontSize: 18.sp,
+                      color: ink,
                       fontWeight: FontWeight.w700,
-                      letterSpacing: -1.0,
+                      letterSpacing: -0.5,
                     ),
                   ),
                   const Spacer(),
@@ -135,7 +96,7 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
                       notificationIcon,
                       height: 24.h,
                       width: 24.w,
-                      color: Colors.white,
+                      color: ink,
                     ),
                   ),
                 ],
@@ -238,51 +199,65 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
         statusIcon = FeatherIcons.package;
     }
 
-    return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(12.w),
-      decoration: BoxDecoration(
-        color: white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: sand),
-        boxShadow: [
-          BoxShadow(
-            color: ink.withOpacity(0.01),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        CategoryDetails(
+          name: order['title'],
+          storeName: 'Styclick Vendor',
+          imagePaths: [order['image']],
+        ).launch(context);
+      },
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(10.w),
+        decoration: BoxDecoration(
+          color: white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: sand),
+          boxShadow: [
+            BoxShadow(
+              color: ink.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Order Image
           ClipRRect(
             borderRadius: BorderRadius.circular(12.r),
             child: Image.asset(
               order['image'],
-              height: 80.h,
-              width: 80.w,
+              height: 84.h,
+              width: 84.w,
               fit: BoxFit.cover,
             ),
           ),
-          16.width,
+          12.width,
           // Order Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      order['id'],
-                      style: GoogleFonts.montserrat(
-                        fontSize: 11.sp,
-                        color: primary,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        order['id'],
+                        style: GoogleFonts.montserrat(
+                          fontSize: 11.sp,
+                          color: primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    4.width,
                     Text(
                       order['date'],
                       style: GoogleFonts.montserrat(
@@ -292,37 +267,45 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
                     ),
                   ],
                 ),
-                8.height,
+                4.height,
                 Text(
                   order['title'],
-                  style: TextStyle(fontFamily: 'Cinta', 
-                    fontSize: 15.sp,
+                  style: TextStyle(
+                    fontFamily: 'Cinta', 
+                    fontSize: 14.sp,
                     color: ink,
                     fontWeight: FontWeight.w700,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                4.height,
+                2.height,
                 Text(
                   order['items'],
-                  style: TextStyle(fontFamily: 'Cinta', 
-                    fontSize: 12.sp,
+                  style: TextStyle(
+                    fontFamily: 'Cinta', 
+                    fontSize: 11.sp,
                     color: textLight,
                   ),
                 ),
-                12.height,
+                8.height,
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      order['price'],
-                      style: GoogleFonts.montserrat(
-                        fontSize: 14.sp,
-                        color: ink,
-                        fontWeight: FontWeight.w800,
+                    Flexible(
+                      child: Text(
+                        order['price'],
+                        style: GoogleFonts.montserrat(
+                          fontSize: 13.sp,
+                          color: primary,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    4.width,
                     Container(
                       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
@@ -333,7 +316,7 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(statusIcon, color: statusColor, size: 10.sp),
-                          6.width,
+                          4.width,
                           Text(
                             order['status'],
                             style: GoogleFonts.montserrat(
@@ -352,149 +335,11 @@ class _SavedOrderPageState extends State<SavedOrderPage> {
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primary.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 35.r,
-                      backgroundColor: white,
-                      backgroundImage: const AssetImage(defaultUserImage),
-                    ),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: TextStyle(fontFamily: 'Cinta', 
-                          color: ink,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      4.height,
-                      Text(
-                        'DASHBOARD',
-                        style: GoogleFonts.montserrat(
-                          color: primary,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'Home', () {
-                    currentIndex = 0;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Catalogue', () {
-                    currentIndex = 1;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Account', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedItemsPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Become a vendor', () {}),
-                  _buildDrawerItem(context, 'Share & Earn', () => const ShareEarnPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Settings', () => const SettingsPage().launch(context)),
-                  _buildDrawerItem(context, 'Help & Support', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Logout', () {
-                    setValue('home', false);
-                  }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              width: 10.w,
-              height: 10.h,
-              decoration: BoxDecoration(
-                color: sand.withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            20.width,
-            Text(
-              title,
-              style: TextStyle(fontFamily: 'Cinta', 
-                fontSize: 16.sp,
-                color: ink,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget buildNotificationDrawer(BuildContext context) {
     return Drawer(

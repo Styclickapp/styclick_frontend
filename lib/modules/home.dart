@@ -1,3 +1,9 @@
+import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:stylclick/modules/details.dart';
+import 'package:stylclick/modules/vendor/vendor_profile.dart';
+import 'package:stylclick/core/services/vendor_service.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,12 +16,15 @@ import 'package:stylclick/modules/order/saved_order.dart';
 import 'package:stylclick/modules/order/saved_items.dart';
 import 'package:stylclick/modules/select-tailor/select_tailor.dart';
 import 'package:stylclick/modules/vendor/index.dart';
+import 'package:stylclick/modules/vendor/become_rider.dart';
 import 'package:stylclick/modules/catalogue/catalogue.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/shared/constants/colors.dart';
 import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
+import 'package:stylclick/core/services/saved_items_service.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 import 'package:stylclick/shared/utils/helpers.dart';
 
@@ -28,6 +37,7 @@ import 'package:stylclick/shared/widgets/snack_bar.dart';
 import '../shared/widgets/custom_textfield.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
 import 'details.dart';
+import 'package:stylclick/modules/admin/admin_dashboard.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -38,6 +48,104 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  List<VendorProduct> _products = [];
+  bool _isLoading = false;
+
+  List<VendorProduct> _parseProducts(List list) {
+    return list.map((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      return VendorProduct.fromJson(m);
+    }).toList();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final cachedData = await VendorService.instance.getCachedProducts();
+      if (cachedData != null) {
+        List? cachedList;
+        if (cachedData is List) {
+          cachedList = cachedData;
+        } else if (cachedData is Map && cachedData['data'] is List) {
+          cachedList = cachedData['data'] as List;
+        }
+        if (cachedList != null) {
+          final loaded = _parseProducts(cachedList);
+          if (mounted) {
+            setState(() {
+              _products = loaded;
+              _isLoading = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      log('[HOME] Failed to load cached products: $e');
+    }
+
+    if (_products.isEmpty && mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final res = await VendorService.instance.getPublicProducts();
+      List? list;
+      if (res.data is List) {
+        list = res.data as List;
+      } else if (res.data is Map && (res.data as Map)['data'] is List) {
+        list = (res.data as Map)['data'] as List;
+      }
+      if (list != null) {
+        final loaded = _parseProducts(list);
+        if (mounted) setState(() => _products = loaded);
+      }
+    } catch (e) {
+      log('[HOME] Failed to load products: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+    SavedItemsService.instance.itemsNotifier.addListener(_onSavedItemsChanged);
+    _scrollController.addListener(() {
+      if (_scrollController.offset > 15) {
+        if (!_isScrolled) {
+          setState(() {
+            _isScrolled = true;
+          });
+        }
+      } else {
+        if (_isScrolled) {
+          setState(() {
+            _isScrolled = false;
+          });
+        }
+      }
+    });
+  }
+
+  void _onSavedItemsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    SavedItemsService.instance.itemsNotifier.removeListener(_onSavedItemsChanged);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Easter egg: 10-tap counter for admin dashboard
+  int _carouselTapCount = 0;
+  DateTime _lastTapTime = DateTime.now();
 
   void _openDrawer() {
     _scaffoldKey.currentState?.openDrawer();
@@ -96,51 +204,50 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            // Header
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(gradient: brandGradient),
-              padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 16.h, bottom: 24.h),
-                child: Row(
-                  children: [
-                    InkWell(
-                      onTap: _openDrawer,
-                      child: Image.asset(
-                        menuIcon,
-                        height: 24.h,
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _loadProducts,
+              color: primary,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                // Header
+                Container(
+                  width: double.infinity,
+                  color: cream,
+                  padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
+                  child: Row(
+                    children: [
+                      SizedBox(
                         width: 24.w,
-                        color: Colors.white,
+                        height: 24.h,
                       ),
-                    ),
-                    const Spacer(),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Image.asset(
+                      const Spacer(),
+                      Image.asset(
                         homeLogo,
-                        height: 35.h,
-                      ),
-                    ),
-                    const Spacer(),
-                    InkWell(
-                      onTap: _openEndDrawer,
-                      child: Image.asset(
-                        notificationIcon,
                         height: 24.h,
-                        width: 24.w,
-                        color: Colors.white,
                       ),
-                    ),
-                  ],
+                      const Spacer(),
+                      InkWell(
+                        onTap: _openEndDrawer,
+                        child: Image.asset(
+                          notificationIcon,
+                          height: 24.h,
+                          width: 24.w,
+                          color: ink,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               24.height,
               // Search Bar
               Padding(
@@ -189,7 +296,21 @@ class _HomePageState extends State<HomePage> {
                     final data = carouselData[index];
                     return Builder(
                       builder: (BuildContext context) {
-                        return Padding(
+                        return GestureDetector(
+                          onTap: () {
+                            final now = DateTime.now();
+                            // Reset counter if more than 3 seconds since last tap
+                            if (now.difference(_lastTapTime).inSeconds > 3) {
+                              _carouselTapCount = 0;
+                            }
+                            _lastTapTime = now;
+                            _carouselTapCount++;
+                            if (_carouselTapCount >= 10) {
+                              _carouselTapCount = 0;
+                              const AdminDashboard().launch(context);
+                            }
+                          },
+                          child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 17.w),
                           child: Container(
                             decoration: BoxDecoration(
@@ -251,6 +372,7 @@ class _HomePageState extends State<HomePage> {
                               ],
                             ),
                           ),
+                        ),
                         );
                       },
                     );
@@ -297,7 +419,46 @@ class _HomePageState extends State<HomePage> {
                         context,
                         'Logistics',
                         dispatchRider,
-                        () {},
+                        () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              backgroundColor: white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+                              title: Row(
+                                children: [
+                                  Image.asset(dispatchRider, width: 28.w, height: 28.h),
+                                  10.width,
+                                  Text(
+                                    'StyClick Express',
+                                    style: TextStyle(fontFamily: cinta, fontSize: 18.sp, fontWeight: FontWeight.bold, color: ink),
+                                  ),
+                                ],
+                              ),
+                              content: Text(
+                                'Doorstep delivery is automatically handled on every fabric and custom tailor order.\n\nWant to partner with us as a delivery rider?',
+                                style: GoogleFonts.montserrat(fontSize: 13.sp, color: textLight, height: 1.5),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: Text('Close', style: GoogleFonts.montserrat(color: textLight, fontWeight: FontWeight.w600)),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    const BecomeRider().launch(context);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                  ),
+                                  child: Text('Become a Rider', style: GoogleFonts.montserrat(color: white, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -426,137 +587,272 @@ class _HomePageState extends State<HomePage> {
               // Featured Grid
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 17.w),
-                child: MasonryGridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 8.w,
-                  crossAxisSpacing: 8.w,
-                  itemCount: images.length,
-                  itemBuilder: (context, index) {
-                    // Simulating staggered heights
-                    double imageHeight = index.isEven ? 180.h : 220.h;
-                    
-                    return GestureDetector(
-                      onTap: () => CategoryDetails().launch(context),
-                      onDoubleTap: () => showMessage(context, 'Added to Favorites!'),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16.r),
-                          color: white,
-                          border: Border.all(color: sand),
-                          boxShadow: [
-                            BoxShadow(
-                              color: ink.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: EdgeInsets.all(8.w),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12.r),
-                              child: Image.asset(
-                                images[index],
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: imageHeight,
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: primary))
+                    : _products.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 40.h),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.inventory_2_outlined, size: 48.sp, color: textLight.withOpacity(0.5)),
+                                  12.height,
+                                  Text(
+                                    'No products available yet',
+                                    style: TextStyle(fontFamily: 'Cinta', fontSize: 15.sp, color: textLight, fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
                             ),
-                            12.height,
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Lace Asoebi',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontFamily: 'Cinta', 
-                                      fontSize: 14.sp,
-                                      color: ink,
-                                      fontWeight: FontWeight.w700,
+                          )
+                        : MasonryGridView.count(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 8.w,
+                            crossAxisSpacing: 8.w,
+                            itemCount: _products.length,
+                            itemBuilder: (context, index) {
+                              final product = _products[index];
+                          double imageHeight = index.isEven ? 180.h : 220.h;
+                          final String? firstImage = product.imagePaths.isNotEmpty ? product.imagePaths.first : null;
+                          
+                          return GestureDetector(
+                            onTap: () => CategoryDetails(
+                              name: product.name,
+                              price: product.price,
+                              description: product.description,
+                              imagePaths: product.imagePaths,
+                              category: product.category,
+                              stock: product.stock,
+                              isOwner: false,
+                              storeName: product.vendorName,
+                              vendorId: product.vendorId,
+                              vendorType: product.vendorType,
+                              vendorEmail: product.vendorEmail,
+                              vendorPhone: product.vendorPhone,
+                              vendorAddress: product.vendorAddress,
+                              vendorBio: product.vendorBio,
+                              vendorSpecialization: product.vendorSpecialization,
+                              vendorBanner: product.vendorBanner,
+                              vendorAvatar: product.vendorAvatar,
+                              rating: product.rating,
+                            ).launch(context),
+                            onDoubleTap: () {
+                              final firstImg = product.imagePaths.isNotEmpty ? product.imagePaths.first : femaleAsoebi;
+                              final isAdded = SavedItemsService.instance.toggleFavorite(
+                                SavedItemModel(
+                                  id: 'fav_${product.name}_${DateTime.now().millisecondsSinceEpoch}',
+                                  name: product.name,
+                                  price: product.price,
+                                  storeName: product.vendorName ?? 'Vendor',
+                                  imagePath: firstImg,
+                                  category: product.category,
+                                  rating: (product.rating != null && product.rating! > 0) ? product.rating!.toStringAsFixed(1) : '0.0 (0)',
+                                  vendorId: product.vendorId,
+                                  vendorType: product.vendorType,
+                                  vendorEmail: product.vendorEmail,
+                                  vendorPhone: product.vendorPhone,
+                                  vendorAddress: product.vendorAddress,
+                                  vendorBio: product.vendorBio,
+                                  vendorSpecialization: product.vendorSpecialization,
+                                  vendorBanner: product.vendorBanner,
+                                  vendorAvatar: product.vendorAvatar,
+                                  description: product.description,
+                                ),
+                              );
+                              setState(() {});
+                              toast(isAdded ? 'Added to Saved Items!' : 'Removed from Saved Items');
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16.r),
+                                color: white,
+                                border: Border.all(color: sand),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: ink.withOpacity(0.03),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              padding: EdgeInsets.all(8.w),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12.r),
+                                    child: firstImage == null
+                                        ? Image.asset(femaleAsoebi, fit: BoxFit.cover, width: double.infinity, height: imageHeight)
+                                        : (firstImage.startsWith('http://') || firstImage.startsWith('https://')
+                                            ? CachedNetworkImage(
+                                                imageUrl: firstImage,
+                                                fit: BoxFit.cover,
+                                                width: double.infinity,
+                                                height: imageHeight,
+                                                placeholder: (_, __) => Shimmer.fromColors(
+                                                  baseColor: sand,
+                                                  highlightColor: Colors.white,
+                                                  child: Container(width: double.infinity, height: imageHeight, color: sand),
+                                                ),
+                                                errorWidget: (_, __, ___) => Image.asset(femaleAsoebi, fit: BoxFit.cover, width: double.infinity, height: imageHeight),
+                                              )
+                                            : (firstImage.startsWith('assets/')
+                                                ? Image.asset(firstImage, fit: BoxFit.cover, width: double.infinity, height: imageHeight)
+                                                : (File(firstImage).existsSync()
+                                                    ? Image.file(File(firstImage), fit: BoxFit.cover, width: double.infinity, height: imageHeight)
+                                                    : Image.asset(femaleAsoebi, fit: BoxFit.cover, width: double.infinity, height: imageHeight)))),
+                                  ),
+                                  12.height,
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          product.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontFamily: 'Cinta', 
+                                            fontSize: 14.sp,
+                                            color: ink,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () {
+                                          final isAdded = SavedItemsService.instance.toggleFavorite(
+                                            SavedItemModel(
+                                              id: 'fav_${product.name}_${DateTime.now().millisecondsSinceEpoch}',
+                                              name: product.name,
+                                              price: product.price,
+                                              storeName: product.vendorName ?? 'Vendor',
+                                              imagePath: firstImage ?? femaleAsoebi,
+                                              category: product.category,
+                                              rating: (product.rating != null && product.rating! > 0) ? product.rating!.toStringAsFixed(1) : '0.0 (0)',
+                                              vendorId: product.vendorId,
+                                              vendorType: product.vendorType,
+                                              vendorEmail: product.vendorEmail,
+                                              vendorPhone: product.vendorPhone,
+                                              vendorAddress: product.vendorAddress,
+                                              vendorBio: product.vendorBio,
+                                              vendorSpecialization: product.vendorSpecialization,
+                                              vendorBanner: product.vendorBanner,
+                                              vendorAvatar: product.vendorAvatar,
+                                              description: product.description,
+                                            ),
+                                          );
+                                          setState(() {});
+                                          toast(isAdded ? 'Added to Saved Items!' : 'Removed from Saved Items');
+                                        },
+                                        child: Image.asset(
+                                          favoriteIcon,
+                                          height: 18.h,
+                                          width: 18.w,
+                                          color: SavedItemsService.instance.isFavorited(product.name) ? primary : ink.withOpacity(0.3),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  6.height,
+                                  Row(
+                                     children: [
+                                       RatingBar.builder(
+                                         initialRating: (product.rating != null && product.rating! > 0) ? product.rating!.toDouble() : 0.0,
+                                         minRating: 0,
+                                         direction: Axis.horizontal,
+                                         allowHalfRating: true,
+                                         itemCount: 5,
+                                         itemSize: 12.sp,
+                                         itemPadding: EdgeInsets.only(right: 2.w),
+                                         itemBuilder: (context, _) => const Icon(
+                                           Icons.star_rounded,
+                                           color: Colors.amber,
+                                         ),
+                                         onRatingUpdate: (rating) {},
+                                       ),
+                                       if (product.rating == null || product.rating == 0.0) ...[
+                                         4.width,
+                                         Text(
+                                           '(0)',
+                                           style: GoogleFonts.montserrat(
+                                             fontSize: 10.sp,
+                                             fontWeight: FontWeight.w600,
+                                             color: textLight,
+                                           ),
+                                         ),
+                                       ],
+                                     ],
+                                   ),
+                                  8.height,
+                                  Text(
+                                    'NGN ${formatPriceNoDecimal(product.price)}',
+                                    style: GoogleFonts.montserrat(
+                                      fontSize: 13.sp,
+                                      color: primary,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                                ),
-                                GestureDetector(
-                                  onTap: () {
-                                    print('DEBUG: Single-tapped favorite icon at index $index');
-                                    showMessage(context, 'Added to Favorites!');
-                                  },
-                                  child: Image.asset(
-                                    favoriteIcon,
-                                    height: 18.h,
-                                    width: 18.w,
-                                    color: primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            6.height,
-                            Row(
-                              children: [
-                                RatingBar.builder(
-                                  initialRating: 4.5,
-                                  minRating: 1,
-                                  direction: Axis.horizontal,
-                                  allowHalfRating: true,
-                                  itemCount: 5,
-                                  itemSize: 12.sp,
-                                  itemPadding: EdgeInsets.only(right: 2.w),
-                                  itemBuilder: (context, _) => const Icon(
-                                    Icons.star_rounded,
-                                    color: Colors.amber,
-                                  ),
-                                  onRatingUpdate: (rating) {},
-                                ),
-                                4.width,
-                                Text(
-                                  '(13)',
-                                  style: GoogleFonts.montserrat(
-                                    fontSize: 10.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: textLight,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            8.height,
-                            Text(
-                              'NGN 45,000',
-                              style: GoogleFonts.montserrat(
-                                fontSize: 13.sp,
-                                color: primary,
-                                fontWeight: FontWeight.w900,
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
               ),
               100.height, // Space for floating nav bar
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+          Positioned(
+            top: 8.h,
+            left: 13.w,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: EdgeInsets.all(10.w),
+              decoration: BoxDecoration(
+                color: _isScrolled ? cream.withValues(alpha: 0.9) : Colors.transparent,
+                shape: BoxShape.circle,
+                boxShadow: _isScrolled
+                    ? [
+                        BoxShadow(
+                          color: ink.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ]
+                    : [],
+              ),
+              child: InkWell(
+                onTap: _openDrawer,
+                child: Image.asset(
+                  menuIcon,
+                  height: 24.h,
+                  width: 24.w,
+                  color: ink,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildQuickAccessItem(BuildContext context, String title, String asset, VoidCallback onTap) {
+  Widget _buildQuickAccessItem(BuildContext context, String title, String asset, VoidCallback onTap, {bool disabled = false}) {
     return InkWell(
-      onTap: onTap,
+      onTap: disabled ? () => toast('Coming soon') : onTap,
       child: Container(
         height: 120.h,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16.r),
           color: white,
-          border: Border.all(color: sand),
+          border: Border.all(color: disabled ? Colors.transparent : sand),
           boxShadow: [
             BoxShadow(
               color: ink.withOpacity(0.01),
@@ -573,161 +869,16 @@ class _HomePageState extends State<HomePage> {
               height: 40.h,
               width: 40.h,
               fit: BoxFit.contain,
-              color: primary,
+              color: disabled ? Colors.grey : primary,
             ),
             12.height,
             Text(
               title,
-              style: TextStyle(fontFamily: 'Cinta', 
+              style: TextStyle(
+                fontFamily: 'Cinta',
                 fontSize: 13.sp,
-                color: ink,
+                color: disabled ? Colors.grey : ink,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            40.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primary.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 35.r,
-                      backgroundColor: white,
-                      backgroundImage: const AssetImage(defaultUserImage),
-                    ),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: TextStyle(fontFamily: 'Cinta', 
-                          color: ink,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      4.height,
-                      InkWell(
-                        onTap: () => const EditProfile().launch(context),
-                        child: Text(
-                          'UPDATE PROFILE',
-                          style: GoogleFonts.montserrat(
-                            color: primary,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'Home', () {
-                    currentIndex = 0;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Catalogue', () {
-                    currentIndex = 1;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Account', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedItemsPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Become a vendor', () => VendorPage().launch(context)),
-                  _buildDrawerItem(context, 'Share & Earn', () => const ShareEarnPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Settings', () => const SettingsPage().launch(context)),
-                  _buildDrawerItem(context, 'Support', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Logout', () {
-                    setValue('home', false);
-                    LoginScreen().launch(context, isNewTask: true);
-                  }),
-                  40.height,
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              width: 10.w,
-              height: 10.h,
-              decoration: BoxDecoration(
-                color: sand.withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            20.width,
-            Text(
-              title,
-              style: TextStyle(fontFamily: 'Cinta', 
-                fontSize: 16.sp,
-                color: ink,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nb_utils/nb_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stylclick/shared/constants/colors.dart';
 import 'package:stylclick/modules/account.dart';
 import 'package:stylclick/modules/catalogue/catalogue.dart';
@@ -22,6 +23,8 @@ List<Widget> children = [];
 final tabs = [const HomePage(), const CataloguePage(), const AccountPage()];
 
 class _NavState extends State<Nav> {
+  bool _isVendor = false;
+
   @override
   void initState() {
     super.initState();
@@ -29,7 +32,12 @@ class _NavState extends State<Nav> {
   }
 
   Future<void> init() async {
-    //
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _isVendor = prefs.getBool('is_vendor') ?? getBoolAsync('is_vendor');
+      });
+    }
   }
 
   @override
@@ -39,6 +47,7 @@ class _NavState extends State<Nav> {
 
   @override
   Widget build(BuildContext context) {
+    _isVendor = getBoolAsync('is_vendor');
     return Scaffold(
       backgroundColor: cream,
       body: Stack(
@@ -86,7 +95,7 @@ class _NavState extends State<Nav> {
                 children: [
                   _buildNavItem(0, Icons.home_rounded, 'Home'),
                   _buildNavItem(1, Icons.dashboard_rounded, 'Catalogue'),
-                  _buildNavItem(2, Icons.person_rounded, 'Account'),
+                  _buildNavItem(2, Icons.person_rounded, _isVendor ? 'Profile' : 'Account'),
                 ],
               ),
             ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:nb_utils/nb_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_pin_code_fields/flutter_pin_code_fields.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 import 'package:stylclick/shared/constants/colors.dart';
@@ -14,8 +15,9 @@ import 'package:stylclick/modules/auth/login.dart';
 class VerifyUser extends StatefulWidget {
   final String? phone;
   final String? email;
+  final String? password;
 
-  const VerifyUser({super.key, this.email, this.phone});
+  const VerifyUser({super.key, this.email, this.phone, this.password});
 
   @override
   State<VerifyUser> createState() => _VerifyUserState();
@@ -52,28 +54,25 @@ class _VerifyUserState extends State<VerifyUser> {
 
   @override
   void initState() {
-    super.initState();
-    log('[VERIFY] VerifyUser screen initialized for email: ${widget.email}, phone: ${widget.phone}');
     startTimer();
+    super.initState();
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     otpController.dispose();
     focusNode.dispose();
-    _timer?.cancel();
     super.dispose();
   }
 
   Future<void> _verifyCode() async {
-    log('[VERIFY] _verifyCode triggered');
-    String otp = otpController.text.trim();
+    final otp = otpController.text.trim();
     if (otp.length < 4) {
-      log('[VERIFY] OTP code is incomplete (length: ${otp.length}). Aborting verify request.');
       showMessage(context, 'Please enter the 4-digit code.');
       return;
     }
-    log('[VERIFY] Initiating actual verification request.');
+
     setState(() {
       isLoading = true;
     });
@@ -85,37 +84,106 @@ class _VerifyUserState extends State<VerifyUser> {
       log('[VERIFY] API Response status: ${res.status}, message: ${res.message}');
       if (res.status == true && res.data != null) {
         final data = res.data!;
-        final String? token = data['token'] as String?;
-        final dynamic user = data['user'];
-
-        log('[VERIFY] Verification successful. Saving session.');
-        if (token != null) {
-          setValue("access_token", token);
-          log('[VERIFY] Saved access_token');
+        String? token;
+        final rawToken = data['token'] ??
+            (data['data'] is Map ? data['data']['token'] : null) ??
+            data['access_token'] ??
+            (data['data'] is Map ? data['data']['access_token'] : null);
+        if (rawToken != null && rawToken.toString().trim().isNotEmpty) {
+          token = rawToken.toString().trim();
         }
 
+        dynamic user = data['user'] ?? data['data']?['user'];
+
+        // The auth/verify endpoint verifies the account but does not issue a JWT token.
+        // If password was provided from registration or login, automatically login to acquire token.
+        if ((token == null || token.isEmpty) && widget.password != null && widget.password!.isNotEmpty) {
+          log('[VERIFY] Token not in verify response. Auto-logging in with credentials...');
+          try {
+            final loginRes = await AuthService.instance.login(widget.email ?? '', widget.password!);
+            if (loginRes.status == true && loginRes.data != null) {
+              final lData = loginRes.data!;
+              final rawLToken = lData['token'] ??
+                  (lData['data'] is Map ? lData['data']['token'] : null) ??
+                  lData['access_token'] ??
+                  (lData['data'] is Map ? lData['data']['access_token'] : null) ??
+                  lData['accessToken'] ??
+                  (lData['data'] is Map ? lData['data']['accessToken'] : null);
+              if (rawLToken != null && rawLToken.toString().trim().isNotEmpty) {
+                token = rawLToken.toString().trim();
+              }
+              final dynamic lUser = (lData['user'] is Map ? lData['user'] : null) ??
+                  (lData['data'] is Map && lData['data']['user'] is Map ? lData['data']['user'] : null) ??
+                  (lData['data'] is Map ? lData['data'] : null);
+              if (lUser is Map) {
+                user = lUser;
+              }
+            }
+          } catch (e) {
+            log('[VERIFY] Auto-login error: $e');
+          }
+        }
+
+        log('[VERIFY] Verification processed. Token status: ${token != null && token.isNotEmpty ? "Present (${token.length} chars)" : "Absent"}');
+        
         String firstName = '';
         String lastName = '';
         String userEmail = widget.email ?? '';
+        String phone = '';
+        String address = '';
 
         if (user != null && user is Map) {
-          firstName = user['first_name'] ?? user['firstname'] ?? '';
-          lastName = user['last_name'] ?? user['lastname'] ?? '';
+          firstName = user['first_name'] ?? user['firstname'] ?? user['fName'] ?? user['firstName'] ?? '';
+          lastName = user['last_name'] ?? user['lastname'] ?? user['lName'] ?? user['lastName'] ?? '';
+          if (firstName.isEmpty && user['name'] != null && user['name'].toString().isNotEmpty) {
+            final parts = user['name'].toString().trim().split(' ');
+            firstName = parts.first;
+            if (parts.length > 1) lastName = parts.sublist(1).join(' ');
+          }
           userEmail = user['email'] ?? userEmail;
+          phone = user['phone'] ?? user['phone_number'] ?? user['mobile'] ?? '';
+          address = user['address'] ?? user['state'] ?? '';
         } else {
           firstName = data['first_name'] ?? data['firstname'] ?? data['firstName'] ?? '';
           lastName = data['last_name'] ?? data['lastname'] ?? data['lastName'] ?? '';
+          if (firstName.isEmpty && data['name'] != null && data['name'].toString().isNotEmpty) {
+            final parts = data['name'].toString().trim().split(' ');
+            firstName = parts.first;
+            if (parts.length > 1) lastName = parts.sublist(1).join(' ');
+          }
           userEmail = data['email'] ?? userEmail;
+          phone = data['phone'] ?? data['phone_number'] ?? data['mobile'] ?? '';
+          address = data['address'] ?? data['state'] ?? '';
         }
 
-        setValue('fName', firstName);
-        setValue('lName', lastName);
-        setValue('email', userEmail);
-        setValue('home', true);
+        if (token != null && token.isNotEmpty) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('access_token', token);
+          await prefs.setString('fName', firstName);
+          await prefs.setString('lName', lastName);
+          await prefs.setString('email', userEmail);
+          await prefs.setString('phone', phone);
+          await prefs.setString('address', address);
+          await prefs.setBool('home', true);
 
-        log('[VERIFY] Session saved: fName = $firstName, lName = $lastName, email = $userEmail, home = true');
-        log('[VERIFY] Navigating to Home Dashboard (Nav)');
-        const Nav().launch(context, isNewTask: true);
+          setValue('access_token', token);
+          setValue('fName', firstName);
+          setValue('lName', lastName);
+          setValue('email', userEmail);
+          setValue('phone', phone);
+          setValue('address', address);
+          setValue('home', true);
+
+          log('[VERIFY] Session saved: fName = $firstName, lName = $lastName, email = $userEmail, home = true');
+          showMessage(context, 'Account verified and signed in successfully!');
+          log('[VERIFY] Navigating to Home Dashboard (Nav)');
+          if (mounted) const Nav().launch(context, isNewTask: true);
+        } else {
+          // No token available: redirect to Login screen cleanly
+          log('[VERIFY] Account verified without direct token. Directing to LoginScreen.');
+          showMessage(context, 'Account verified successfully! Please sign in with your password.');
+          if (mounted) const LoginScreen().launch(context, isNewTask: true);
+        }
       } else {
         log('[VERIFY] Verification failed: ${res.message}');
         showMessage(context, res.message ?? 'Verification failed. Please check the code.');

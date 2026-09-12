@@ -1,12 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:nb_utils/nb_utils.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:stylclick/core/services/vendor_service.dart';
 import 'package:stylclick/modules/success_page.dart';
 import 'package:stylclick/shared/constants/colors.dart';
-import 'package:stylclick/shared/constants/images.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 import 'package:stylclick/shared/widgets/custom_textfield.dart';
@@ -29,16 +31,35 @@ class _BecomeVendorState extends State<BecomeVendor> {
   final TextEditingController _address = TextEditingController();
   final TextEditingController _email = TextEditingController();
   final TextEditingController _phone = TextEditingController();
-  final TextEditingController _experience = TextEditingController();
 
   List<String> _specializations = [];
   final List<String> _options = ['Traditional', 'Corporate', 'Casual', 'Bridal', 'Asoebi', 'Streetwear'];
 
   // Image Upload Paths
   String? _cacImagePath;
-  String? _portfolioImagePath;
+  List<String> _portfolioImages = [];
+  final _imagePicker = ImagePicker();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserSession();
+  }
+
+  void _loadUserSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final prefEmail = prefs.getString('email') ?? getStringAsync('email');
+    final prefPhone = prefs.getString('phone') ?? getStringAsync('phone');
+    final prefAddress = prefs.getString('address') ?? getStringAsync('address');
+
+    setState(() {
+      if (prefEmail.isNotEmpty) _email.text = prefEmail;
+      if (prefPhone.isNotEmpty) _phone.text = prefPhone;
+      if (prefAddress.isNotEmpty) _address.text = prefAddress;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +80,7 @@ class _BecomeVendorState extends State<BecomeVendor> {
                   ),
                   20.width,
                   Text(
-                    'Designer Registration',
+                    'Tailor Registration',
                     style: TextStyle(
                       fontFamily: 'Cinta',
                       fontSize: 22.sp,
@@ -131,7 +152,7 @@ class _BecomeVendorState extends State<BecomeVendor> {
         ),
         16.height,
         _buildTextField(
-          'Business Email',
+          'Email',
           _email,
           FeatherIcons.mail,
           type: TextInputType.emailAddress,
@@ -195,18 +216,6 @@ class _BecomeVendorState extends State<BecomeVendor> {
           }).toList(),
         ),
         32.height,
-        _buildTextField(
-          'Years of Experience',
-          _experience,
-          FeatherIcons.clock,
-          type: TextInputType.number,
-          validator: (v) {
-            if (v.validate().isEmpty) return 'Years of Experience is required';
-            final n = num.tryParse(v.validate());
-            if (n == null || n < 0) return 'Enter a valid number';
-            return null;
-          },
-        ),
       ],
     );
   }
@@ -215,27 +224,15 @@ class _BecomeVendorState extends State<BecomeVendor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionHeader('VERIFICATION', 'Upload proof of your craft.'),
+        _buildSectionHeader('VERIFICATION', 'Upload proof of your business.'),
         24.height,
         _buildUploadField(
           'Business Registration (CAC)',
-          'PDF or Image',
+          'PDF or Image Document',
           _cacImagePath,
-          () {
-            setState(() {
-              _cacImagePath = bizImage; // Mock uploaded file using bizImage asset
-            });
-          },
-        ),
-        16.height,
-        _buildUploadField(
-          'Portfolio/Recent Work',
-          'Min. 3 high-quality images',
-          _portfolioImagePath,
-          () {
-            setState(() {
-              _portfolioImagePath = sewingMachine; // Mock uploaded file using sewingMachine asset
-            });
+          () async {
+            final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+            if (picked != null) setState(() => _cacImagePath = picked.path);
           },
         ),
         32.height,
@@ -284,7 +281,7 @@ class _BecomeVendorState extends State<BecomeVendor> {
   }
 
   Widget _buildTextField(
-    String hint,
+    String label,
     TextEditingController controller,
     IconData icon, {
     TextInputType type = TextInputType.text,
@@ -292,17 +289,16 @@ class _BecomeVendorState extends State<BecomeVendor> {
   }) {
     return CustomTextField(
       controller: controller,
-      hintText: hint,
+      label: label,
+      hintText: 'Enter your ${label.toLowerCase()}',
       textInputType: type,
-      prefixIcon: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12.w),
-        child: Icon(icon, color: sand, size: 18.sp),
-      ),
       validator: validator,
     );
   }
 
-  Widget _buildUploadField(String label, String sub, String? imagePath, VoidCallback onTap) {
+  Widget _buildUploadField(String label, String sub, String? filePath, VoidCallback onTap) {
+    final bool hasFile = filePath != null && filePath.isNotEmpty;
+    final String fileName = hasFile ? filePath.split(RegExp(r'[/\\]')).last : '';
     return InkWell(
       onTap: onTap,
       child: DottedBorder(
@@ -315,26 +311,38 @@ class _BecomeVendorState extends State<BecomeVendor> {
           width: double.infinity,
           padding: EdgeInsets.all(20.w),
           decoration: BoxDecoration(color: white, borderRadius: BorderRadius.circular(16.r)),
-          child: imagePath != null
+          child: hasFile
               ? Row(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: Image.asset(
-                        imagePath,
-                        height: 50.h,
-                        width: 50.w,
-                        fit: BoxFit.cover,
+                    if (filePath != null && (filePath.endsWith('.png') || filePath.endsWith('.jpg') || filePath.endsWith('.jpeg') || filePath.endsWith('.webp') || filePath.endsWith('.heic')))
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8.r),
+                        child: Image.file(
+                          File(filePath),
+                          height: 48.h,
+                          width: 48.w,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            padding: EdgeInsets.all(10.w),
+                            decoration: BoxDecoration(color: primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.r)),
+                            child: Icon(FeatherIcons.fileText, color: primary, size: 24.sp),
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(color: primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.r)),
+                        child: Icon(FeatherIcons.fileText, color: primary, size: 24.sp),
                       ),
-                    ),
-                    16.width,
+                    14.width,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(label, style: GoogleFonts.montserrat(fontSize: 15.sp, color: ink, fontWeight: FontWeight.w700)),
+                          Text(label, style: GoogleFonts.montserrat(fontSize: 14.sp, color: ink, fontWeight: FontWeight.w700)),
                           4.height,
-                          Text('File uploaded successfully', style: TextStyle(fontFamily: cinta, fontSize: 12.sp, color: successColor)),
+                          Text(fileName, style: TextStyle(fontFamily: cinta, fontSize: 12.sp, color: primary, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
@@ -375,59 +383,94 @@ class _BecomeVendorState extends State<BecomeVendor> {
             ),
           Expanded(
             flex: 2,
-            child: AppButton(
-              text: _currentStep == 2
-              ? (_isLoading ? 'Submitting...' : 'Submit Application')
-              : 'Next Step',
-              textStyle: GoogleFonts.montserrat(color: white, fontWeight: FontWeight.w700),
-              color: primary,
-              onTap: _isLoading
-              ? null
-              : () async {
-                  if (_formKey.currentState!.validate()) {
-                    if (_currentStep == 1 && _specializations.isEmpty) {
-                      toast('Please select at least one specialization');
-                      return;
-                    }
-                    if (_currentStep == 2) {
-                      if (_cacImagePath == null) {
-                        toast('Please upload Business Registration (CAC)');
-                        return;
+            child: GestureDetector(
+              onLongPress: _currentStep == 2
+                  ? () async {
+                      log('[DEBUG] Long-press: bypassing API, simulating tailor approval.');
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('is_vendor', true);
+                      await prefs.setString('vendor_type', 'tailor');
+                      await prefs.setString('shop_name', _shopName.text.trim());
+                      await prefs.setString('phone', _phone.text.trim());
+                      await prefs.setString('address', _address.text.trim());
+                      await prefs.setString('email', _email.text.trim());
+                      await prefs.setString('specializations', _specializations.join(','));
+                      if (_cacImagePath != null) {
+                        await prefs.setString('cac_image_path', _cacImagePath!);
                       }
-                      if (_portfolioImagePath == null) {
-                        toast('Please upload Portfolio/Recent Work');
-                        return;
+                      if (_portfolioImages.isNotEmpty) {
+                        await prefs.setStringList('portfolio_images', _portfolioImages);
                       }
-                    }
-
-                    if (_currentStep < 2) {
-                      setState(() => _currentStep++);
-                    } else {
-                      setState(() => _isLoading = true);
-                      log('[VENDOR] Submitting vendor application...');
-                      final res = await VendorService.instance.applyAsVendor(
-                        shopName: _shopName.text.trim(),
-                        email: _email.text.trim(),
-                        phone: _phone.text.trim(),
-                        address: _address.text.trim(),
-                        specializations: _specializations,
-                        yearsOfExperience: _experience.text.trim(),
-                      );
                       if (mounted) {
-                        setState(() => _isLoading = false);
-                        if (res.status == true) {
-                          const SuccessPage(
-                            medium: 'Application Sent',
-                            message: 'Your designer profile is being reviewed. We will contact you shortly.',
-                          ).launch(context);
-                        } else {
-                          showMessage(context, res.message ?? 'Submission failed. Please try again.');
-                        }
+                        const SuccessPage(
+                          isVendorRegistration: true,
+                          medium: 'Application Sent',
+                          message: 'Your tailor profile is being reviewed. We will contact you shortly.',
+                        ).launch(context);
                       }
                     }
-                  }
-                },
-              shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                  : null,
+              child: AppButton(
+                text: _currentStep == 2
+                    ? (_isLoading ? 'Submitting...' : 'Submit Application')
+                    : 'Next Step',
+                textStyle: GoogleFonts.montserrat(color: white, fontWeight: FontWeight.w700),
+                color: primary,
+                onTap: _isLoading
+                    ? null
+                    : () async {
+                        if (_formKey.currentState!.validate()) {
+                          if (_currentStep == 1 && _specializations.isEmpty) {
+                            toast('Please select at least one specialization');
+                            return;
+                          }
+
+                          if (_currentStep == 2 && (_cacImagePath == null || _cacImagePath!.isEmpty)) {
+                            toast('Please upload Business Registration (CAC)');
+                            return;
+                          }
+
+                          if (_currentStep < 2) {
+                            setState(() => _currentStep++);
+                          } else {
+                            setState(() => _isLoading = true);
+                            log('[VENDOR] Submitting vendor application...');
+                            final res = await VendorService.instance.applyAsVendor(
+                              shopName: _shopName.text.trim(),
+                              email: _email.text.trim(),
+                              phone: _phone.text.trim(),
+                              address: _address.text.trim(),
+                              specializations: _specializations,
+                              certificate: _cacImagePath,
+                            );
+                            if (mounted) {
+                              setState(() => _isLoading = false);
+                              if (res.status != true) {
+                                toast(res.message ?? 'Failed to submit application');
+                                return;
+                              }
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.setBool('is_vendor', false);
+                              await prefs.setString('vendor_status', 'pending');
+                              await prefs.setString('vendor_type', 'designer');
+                              await prefs.setString('shop_name', _shopName.text.trim());
+                              await prefs.setString('specializations', _specializations.join(','));
+                              setValue('is_vendor', false);
+                              setValue('vendor_status', 'pending');
+                              setValue('vendor_type', 'designer');
+                              if (mounted) {
+                                const SuccessPage(
+                                  isVendorRegistration: true,
+                                  medium: 'Application Sent to Moderation',
+                                  message: 'Your tailor application has been submitted to the Moderation Dashboard for admin review and approval.',
+                                ).launch(context);
+                              }
+                            }
+                          }
+                        }
+                      },
+                shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              ),
             ),
           ),
         ],

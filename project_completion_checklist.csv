@@ -1,0 +1,58 @@
+Category,Task,Subtask,Completed
+"Onboarding & Login Revamp","Biometric Sign-In","Biometric Sign-In Removal: Remove 'Sign In with Biometrics' button and 'OR' divider from the login flow",TRUE
+"Onboarding & Login Revamp","Scrolling Mitigation","Adjust vertical layouts to ensure login screen and walkthrough screen fit entirely without scrolling",TRUE
+"Onboarding & Login Revamp","Verification Redirect","Automatic Email Verification Redirect: Detect unverified account errors and redirect to OTP screen",TRUE
+"Onboarding & Login Revamp","OTP Screen Layout","OTP Verification Screen Adjustments: Move countdown text and Resend button onto separate lines in a vertical layout",TRUE
+"Onboarding & Login Revamp","Verification API","Verification API Connection: Remove temporary mock bypasses to make production API verification calls",TRUE
+"Onboarding & Login Revamp","Signup Error Handling","Signup Error Handling: Remove SendGrid/email error bypass and handle standard error alerts directly",TRUE
+"Onboarding & Login Revamp","Verification API","Restore Production Verification API Call: Revert temporary bypass in verify_user.dart to call real backend",TRUE
+"Architecture & State Management","State Management Implementation","Uncomment and properly configure MultiProvider at the root of the application (e.g., in main.dart)",FALSE
+"Architecture & State Management","State Management Implementation","Create AuthProvider to manage user authentication, tokens, and profile data",FALSE
+"Architecture & State Management","State Management Implementation","Create WalletProvider to manage wallet balances and transaction history",FALSE
+"Architecture & State Management","State Management Implementation","Create OrderProvider to manage cart items, saved items, and active orders",FALSE
+"Architecture & State Management","State Management Implementation","Refactor existing widgets (e.g., AccountPage, AddFundsPage, WalletPage) to consume state via Provider (context.watch/read/Consumer) instead of local setState",FALSE
+"Architecture & State Management","Refactor Application Initialization","Remove hardcoded Future.delayed(const Duration(seconds: 5)) in redirect.dart",FALSE
+"Architecture & State Management","Refactor Application Initialization","Create an AppInitializer service that asynchronously loads SharedPreferences, validates auth tokens, and pre-fetches essential data concurrently",FALSE
+"Architecture & State Management","Refactor Application Initialization","Use FutureBuilder or a dedicated Splash screen state to handle transition to either LoginScreen or Nav dynamically",FALSE
+"Architecture & State Management","Clean Up SharedPreferences Usage","Stop calling getStringAsync synchronously within widget build() methods (e.g., in AccountPage and redirect.dart)",FALSE
+"Architecture & State Management","Clean Up SharedPreferences Usage","Load preferences once during app startup and store them in the relevant Provider (e.g., UserProvider/AuthProvider), updating reactively",FALSE
+"UI, UX & Responsiveness","Fix Screen Scaling","Update ScreenUtilInit in main.dart: Replace designSize to exact Figma dimensions (e.g., 390x844 or 375x812)",TRUE
+"UI, UX & Responsiveness","Fix Screen Scaling","Verify all text sizes (.sp), widths (.w), heights (.h), and radiuses (.r) scale proportionally without distortion/overflow",FALSE
+"UI, UX & Responsiveness","Implement Non-Functional Navigation","In AccountPage, implement empty callback for 'Chats' to launch ChatScreen (creating it if needed)",FALSE
+"UI, UX & Responsiveness","Implement Non-Functional Navigation","In AccountPage, implement empty callback for 'Supports / Help & Support' to launch SupportPage (creating it if needed)",FALSE
+"UI, UX & Responsiveness","Implement Non-Functional Navigation","Ensure all Drawer and EndDrawer menu items map to a valid screen or action",FALSE
+"UI, UX & Responsiveness","Complete Unfinished Features","In add_funds.dart, replace the paymentUrl placeholder with a functional payment gateway integration (e.g., Paystack, Flutterwave, or WebView)",FALSE
+"UI, UX & Responsiveness","Complete Unfinished Features","Ensure the wallet balance updates reactively upon successful payment gateway callbacks",FALSE
+"UI, UX & Responsiveness","Complete Unfinished Features","Complete any other TODO placeholders across the codebase",FALSE
+"Code Quality & Static Analysis","Fix Missing const Constructors","Add const keywords to widgets, EdgeInsets, and other compile-time constants to optimize rebuilding",FALSE
+"Code Quality & Static Analysis","Resolve Widget Immutability Issues","Ensure all fields in StatefulWidget or StatelessWidget classes are marked as final",FALSE
+"Code Quality & Static Analysis","Resolve Widget Immutability Issues","If a widget requires mutable state, properly move those variables into the corresponding State class",FALSE
+"Code Quality & Static Analysis","Update Deprecated Flutter APIs","Replace deprecated theme properties (e.g., headline6 -> titleLarge, bodyText1 -> bodyLarge)",FALSE
+"Code Quality & Static Analysis","Update Deprecated Flutter APIs","Replace WillPopScope with PopScope",FALSE
+"Code Quality & Static Analysis","Update Deprecated Flutter APIs","Review flutter analyze log to update any other outdated Flutter 3.x APIs",FALSE
+"Code Quality & Static Analysis","Clean Up Debug Statements & Unused Code","Remove all print() and log() statements from production code (e.g., log in add_funds.dart); use configured logger package",FALSE
+"Code Quality & Static Analysis","Clean Up Debug Statements & Unused Code","Remove unused imports, unused variables, and dead code blocks",FALSE
+"Code Quality & Static Analysis","Enforce Linting Rules","Update analysis_options.yaml to include standard strict rules (e.g., flutter_lints)",TRUE
+"Code Quality & Static Analysis","Enforce Linting Rules","Set up a pre-commit hook or CI pipeline to run flutter analyze and reject code with static analysis errors",FALSE
+"Routing & Navigation Structure","Implement Centralized Router","Integrate a modern routing package (e.g., go_router or auto_route) to handle deep linking, nested navigation, and route guards",FALSE
+"Routing & Navigation Structure","Implement Centralized Router","Refactor Navigator.push calls (like in AccountPage and redirect.dart) to named routes (e.g., context.go('/wallet'))",FALSE
+"Routing & Navigation Structure","Route Guarding","Ensure authenticated routes redirect to login flow if token is invalid or missing",FALSE
+"API & Networking Integrity","Standardize the Networking Client","Centralize API calls using a robust HTTP client like dio",FALSE
+"API & Networking Integrity","Standardize the Networking Client","Implement interceptors to automatically attach the Authorization header (Bearer token) to every outgoing request",FALSE
+"API & Networking Integrity","Standardize the Networking Client","Implement an interceptor to handle 401 Unauthorized responses globally (auto logging out and redirecting to login)",FALSE
+"API & Networking Integrity","Centralize API Endpoints","Ensure all API routes are defined in endpoints.dart or ApiConstants to avoid hardcoded strings across services",TRUE
+"Error Handling & Form Validations","Global Error Handling","Create a centralized error handling service to catch API exceptions and display standardized SnackBars/Dialogs",FALSE
+"Error Handling & Form Validations","Form Validations","Apply FormState and TextFormField validators on login, sign up, profile edit, and vendor onboarding screens",FALSE
+"Error Handling & Form Validations","Form Validations","Prevent form submissions (e.g., AddFundsPage) if fields are empty, ensuring buttons are disabled or show inline errors",FALSE
+"Component Reusability & Theming","Standardize ThemeData","Define global text styles (GoogleFonts.montserrat or Cinta), colors (primary, cream, sand), and button shapes in main.dart's ThemeData",FALSE
+"Component Reusability & Theming","Standardize ThemeData","Remove hardcoded TextStyle and BoxDecoration definitions from individual widgets (e.g., AccountPage) and use Theme.of(context)",FALSE
+"Component Reusability & Theming","Refactor Reusable Widgets","Extract repeated UI patterns (quick action cards in AccountPage, payment method tiles in add_funds.dart) into distinct, reusable widgets",FALSE
+"Mock & Dummy Data Conversion","Admin Dashboard","Convert mock data for pending applications, approved vendors, and flagged moderation items in admin_dashboard.dart to real API/backend logic",FALSE
+"Mock & Dummy Data Conversion","Fabric Product List","Replace _mockProducts in buy_fabrics_details.dart with real API backend-driven products",FALSE
+"Mock & Dummy Data Conversion","Home Screen Products","Replace _mockProducts in home.dart with real API backend-driven products",FALSE
+"Mock & Dummy Data Conversion","Tailor details Products","Replace _mockProducts in tailor_details.dart with real API backend-driven products",FALSE
+"Mock & Dummy Data Conversion","Catalogue Products","Replace _mockProducts in catalogue.dart with real API backend-driven products",FALSE
+"Mock & Dummy Data Conversion","Payment Integration","Replace paymentUrl TODO in add_funds.dart with functional payment gateway integration (e.g., Paystack, Flutterwave, or WebView)",FALSE
+"Pending Backend API Tasks","Resend OTP Route","Deploy a working resend-otp route on the backend server (POST auth/resend-otp)",FALSE
+"Pending Backend API Tasks","Resend OTP Route","Ensure resend-otp accepts POST request with the user's email",FALSE
+"Pending Backend API Tasks","Resend OTP Route","Update/confirm resendOtp in endpoint.dart and re-enable testing in test_endpoints.dart once endpoint is ready",FALSE

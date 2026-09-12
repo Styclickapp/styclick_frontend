@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 
 import 'package:http/http.dart' as http;
 import 'package:nb_utils/nb_utils.dart';
@@ -24,19 +25,120 @@ class ApiService {
         "Accept": "application/json",
       };
 
-  static Map<String, String> get authHeaders {
-    final token = getStringAsync("access_token");
+  /// Reads the token directly from SharedPreferences and nb_utils.
+  static Future<Map<String, String>> _authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    String token = prefs.getString("access_token") ?? '';
+    if (token.isEmpty) {
+      token = getStringAsync("access_token");
+      if (token.isNotEmpty) {
+        await prefs.setString("access_token", token);
+      }
+    }
+    log('[API] Token read: ${token.isEmpty ? "EMPTY" : "present (${token.length} chars)"}');
     return {
       "Accept": "application/json",
       if (token.isNotEmpty) "Authorization": "Bearer $token",
     };
   }
 
+  static const Duration defaultTimeout = Duration(seconds: 15);
+  static const int maxRetries = 1;
+
+  static bool _isWarmedUp = false;
+
+  /// Background ping to wake up backend server instance immediately on app/auth load
+  void warmUpBackend() {
+    if (_isWarmedUp) return;
+    _isWarmedUp = true;
+    try {
+      final url = Uri.parse(baseUrl + "products");
+      log('[API] Background server warm-up initiated: $url');
+      http.get(url, headers: baseHeaders).timeout(const Duration(seconds: 15)).catchError((e) {
+        log('[API] Warm-up ping finished: $e');
+        return http.Response('', 500);
+      });
+    } catch (e) {
+      log('[API] Warm-up exception ignored: $e');
+    }
+  }
+
+  Future<http.Response> _executeWithRetry(Future<http.Response> Function() requestFn) async {
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        return await requestFn().timeout(defaultTimeout);
+      } on TimeoutException {
+        if (attempt > maxRetries) rethrow;
+        log('[API] Attempt $attempt timed out. Retrying automatically...');
+      } on SocketException {
+        if (attempt > maxRetries) rethrow;
+        log('[API] Attempt $attempt network socket error. Retrying automatically...');
+      }
+    }
+  }
+
   // ── Generic request helpers ───────────────────────────────────────────
+
+  /// Upload multiple files via multipart POST. Returns the full decoded response body.
+  Future<ApiResponse<dynamic>> postMultipart(
+    String path, {
+    required List<String> filePaths,
+    String fileField = 'images',
+    Map<String, String> fields = const {},
+  }) async {
+    final apiResponse = ApiResponse<dynamic>();
+    try {
+      final url = Uri.parse(baseUrl + path);
+      final headers = await _authHeaders();
+      log('[API] MULTIPART POST $url | files: $filePaths');
+
+      final request = http.MultipartRequest('POST', url)
+        ..headers.addAll(headers)
+        ..fields.addAll(fields);
+
+      for (final filePath in filePaths) {
+        request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+      }
+
+      final streamed = await request.send().timeout(defaultTimeout);
+      final res = await http.Response.fromStream(streamed);
+      log('[API] Status: ${res.statusCode} | Body: ${res.body}');
+
+      dynamic data;
+      try { data = json.decode(res.body); } catch (_) {}
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final bool isExplicitFailure = data is Map && data.containsKey('status') && (data['status'] == false || data['status'] == 0 || data['status'] == 'false');
+        if (isExplicitFailure) {
+          apiResponse.status = false;
+          apiResponse.message = _parseErrorMessage(data, res.statusCode);
+        } else {
+          apiResponse.data = data ?? res.body;
+          apiResponse.status = true;
+          apiResponse.message = data is Map && data.containsKey('message') ? data['message'].toString() : null;
+        }
+      } else {
+        apiResponse.status = false;
+        apiResponse.message = _parseErrorMessage(data, res.statusCode);
+      }
+    } on SocketException {
+      apiResponse.status = false;
+      apiResponse.message = 'No internet connection.';
+    } on TimeoutException {
+      apiResponse.status = false;
+      apiResponse.message = 'Upload timed out. Please try again.';
+    } catch (e) {
+      apiResponse.status = false;
+      apiResponse.message = e.toString();
+    }
+    return apiResponse;
+  }
 
   Future<ApiResponse<T>> post<T>(
     String path, {
-    required Map<String, String> body,
+    required dynamic body,
     bool authenticated = false,
     T Function(dynamic)? transform,
   }) async {
@@ -45,12 +147,23 @@ class ApiService {
 
     try {
       final url = baseUrl + path;
+      final headers = authenticated ? await _authHeaders() : baseHeaders;
       log('[API] POST $url | body: $body');
+      log('[API] Headers: $headers');
 
-      final res = await http.post(
-        Uri.parse(url),
-        headers: authenticated ? authHeaders : baseHeaders,
-        body: body,
+      Object? reqBody = body;
+      Map<String, String> reqHeaders = Map<String, String>.from(headers);
+      reqHeaders['Content-Type'] = 'application/json';
+      if (body is Map || body is List) {
+        reqBody = json.encode(body);
+      }
+
+      final res = await _executeWithRetry(
+        () => http.post(
+          Uri.parse(url),
+          headers: reqHeaders,
+          body: reqBody,
+        ),
       );
 
       log('[API] Status: ${res.statusCode} | Body: ${res.body}');
@@ -61,11 +174,17 @@ class ApiService {
       } catch (_) {}
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        apiResponse.data = transform(data ?? res.body);
-        apiResponse.status = true;
-        apiResponse.message = data is Map && data.containsKey('message')
-            ? data['message'].toString()
-            : null;
+        final bool isExplicitFailure = data is Map && data.containsKey('status') && (data['status'] == false || data['status'] == 0 || data['status'] == 'false');
+        if (isExplicitFailure) {
+          apiResponse.status = false;
+          apiResponse.message = _parseErrorMessage(data, res.statusCode);
+        } else {
+          apiResponse.data = transform(data ?? res.body);
+          apiResponse.status = true;
+          apiResponse.message = data is Map && data.containsKey('message')
+              ? data['message'].toString()
+              : null;
+        }
       } else {
         apiResponse.status = false;
         apiResponse.message = _parseErrorMessage(data, res.statusCode);
@@ -73,6 +192,9 @@ class ApiService {
     } on SocketException {
       apiResponse.status = false;
       apiResponse.message = 'No internet connection. Please check your network.';
+    } on TimeoutException {
+      apiResponse.status = false;
+      apiResponse.message = 'Connection timed out. Please try again.';
     } catch (e) {
       apiResponse.status = false;
       apiResponse.message = e.toString();
@@ -92,10 +214,13 @@ class ApiService {
     try {
       final url = baseUrl + path;
       log('[API] GET $url');
+      final headers = authenticated ? await _authHeaders() : baseHeaders;
 
-      final res = await http.get(
-        Uri.parse(url),
-        headers: authenticated ? authHeaders : baseHeaders,
+      final res = await _executeWithRetry(
+        () => http.get(
+          Uri.parse(url),
+          headers: headers,
+        ),
       );
 
       log('[API] Status: ${res.statusCode} | Body: ${res.body}');
@@ -106,8 +231,14 @@ class ApiService {
       } catch (_) {}
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        apiResponse.data = transform(data ?? res.body);
-        apiResponse.status = true;
+        final bool isExplicitFailure = data is Map && data.containsKey('status') && (data['status'] == false || data['status'] == 0 || data['status'] == 'false');
+        if (isExplicitFailure) {
+          apiResponse.status = false;
+          apiResponse.message = _parseErrorMessage(data, res.statusCode);
+        } else {
+          apiResponse.data = transform(data ?? res.body);
+          apiResponse.status = true;
+        }
       } else {
         apiResponse.status = false;
         apiResponse.message = _parseErrorMessage(data, res.statusCode);
@@ -115,6 +246,9 @@ class ApiService {
     } on SocketException {
       apiResponse.status = false;
       apiResponse.message = 'No internet connection. Please check your network.';
+    } on TimeoutException {
+      apiResponse.status = false;
+      apiResponse.message = 'Connection timed out. Please try again.';
     } catch (e) {
       apiResponse.status = false;
       apiResponse.message = e.toString();
@@ -125,7 +259,7 @@ class ApiService {
 
   Future<ApiResponse<T>> patch<T>(
     String path, {
-    required Map<String, String> body,
+    required dynamic body,
     bool authenticated = true,
     T Function(dynamic)? transform,
   }) async {
@@ -134,12 +268,22 @@ class ApiService {
 
     try {
       final url = baseUrl + path;
+      final headers = authenticated ? await _authHeaders() : baseHeaders;
       log('[API] PATCH $url | body: $body');
 
-      final res = await http.patch(
-        Uri.parse(url),
-        headers: authenticated ? authHeaders : baseHeaders,
-        body: body,
+      Object? reqBody = body;
+      Map<String, String> reqHeaders = Map<String, String>.from(headers);
+      if (body is Map && body is! Map<String, String>) {
+        reqBody = json.encode(body);
+        reqHeaders['Content-Type'] = 'application/json';
+      }
+
+      final res = await _executeWithRetry(
+        () => http.patch(
+          Uri.parse(url),
+          headers: reqHeaders,
+          body: reqBody,
+        ),
       );
 
       log('[API] Status: ${res.statusCode} | Body: ${res.body}');
@@ -150,11 +294,17 @@ class ApiService {
       } catch (_) {}
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        apiResponse.data = transform(data ?? res.body);
-        apiResponse.status = true;
-        apiResponse.message = data is Map && data.containsKey('message')
-            ? data['message'].toString()
-            : null;
+        final bool isExplicitFailure = data is Map && data.containsKey('status') && (data['status'] == false || data['status'] == 0 || data['status'] == 'false');
+        if (isExplicitFailure) {
+          apiResponse.status = false;
+          apiResponse.message = _parseErrorMessage(data, res.statusCode);
+        } else {
+          apiResponse.data = transform(data ?? res.body);
+          apiResponse.status = true;
+          apiResponse.message = data is Map && data.containsKey('message')
+              ? data['message'].toString()
+              : null;
+        }
       } else {
         apiResponse.status = false;
         apiResponse.message = _parseErrorMessage(data, res.statusCode);
@@ -162,6 +312,9 @@ class ApiService {
     } on SocketException {
       apiResponse.status = false;
       apiResponse.message = 'No internet connection. Please check your network.';
+    } on TimeoutException {
+      apiResponse.status = false;
+      apiResponse.message = 'Connection timed out. Please try again.';
     } catch (e) {
       apiResponse.status = false;
       apiResponse.message = e.toString();
@@ -169,6 +322,64 @@ class ApiService {
 
     return apiResponse;
   }
+
+  Future<ApiResponse<T>> delete<T>(
+    String path, {
+    bool authenticated = true,
+    T Function(dynamic)? transform,
+  }) async {
+    transform ??= (r) => r as T;
+    final apiResponse = ApiResponse<T>();
+
+    try {
+      final url = baseUrl + path;
+      log('[API] DELETE $url');
+      final headers = authenticated ? await _authHeaders() : baseHeaders;
+
+      final res = await _executeWithRetry(
+        () => http.delete(
+          Uri.parse(url),
+          headers: headers,
+        ),
+      );
+
+      log('[API] Status: ${res.statusCode} | Body: ${res.body}');
+
+      dynamic data;
+      try {
+        data = json.decode(res.body);
+      } catch (_) {}
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final bool isExplicitFailure = data is Map && data.containsKey('status') && (data['status'] == false || data['status'] == 0 || data['status'] == 'false');
+        if (isExplicitFailure) {
+          apiResponse.status = false;
+          apiResponse.message = _parseErrorMessage(data, res.statusCode);
+        } else {
+          apiResponse.data = transform(data ?? res.body);
+          apiResponse.status = true;
+          apiResponse.message = data is Map && data.containsKey('message')
+              ? data['message'].toString()
+              : null;
+        }
+      } else {
+        apiResponse.status = false;
+        apiResponse.message = _parseErrorMessage(data, res.statusCode);
+      }
+    } on SocketException {
+      apiResponse.status = false;
+      apiResponse.message = 'No internet connection. Please check your network.';
+    } on TimeoutException {
+      apiResponse.status = false;
+      apiResponse.message = 'Connection timed out. Please try again.';
+    } catch (e) {
+      apiResponse.status = false;
+      apiResponse.message = e.toString();
+    }
+
+    return apiResponse;
+  }
+
 
   String _parseErrorMessage(dynamic data, int statusCode) {
     if (data is Map) {

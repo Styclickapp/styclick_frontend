@@ -8,6 +8,10 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
 import 'package:stylclick/modules/edit_profile.dart';
 import 'package:stylclick/modules/auth/login.dart';
+import 'package:stylclick/modules/vendor/index.dart';
+import 'package:stylclick/modules/privacy_policy.dart';
+import 'package:stylclick/modules/terms_of_service.dart';
+import 'package:stylclick/modules/delete_account.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -44,10 +48,10 @@ class _SettingsPageState extends State<SettingsPage> {
                       'Settings',
                       style: TextStyle(
                         fontFamily: 'Cinta',
-                        fontSize: 26.sp,
-                        color: primary,
+                        fontSize: 18.sp,
+                        color: ink,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
+                        letterSpacing: -0.5,
                       ),
                     ),
                   ],
@@ -73,6 +77,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: 'Notifications',
                 subtitle: 'Control your alert preferences',
                 onTap: () {},
+              ),
+              _buildSettingTile(
+                icon: FeatherIcons.users,
+                title: 'Change Vendor Role',
+                subtitle: 'Switch between Tailor, Fabrics Seller, or Rider',
+                onTap: () => const VendorPage().launch(context),
               ),
               
               32.height,
@@ -103,12 +113,22 @@ class _SettingsPageState extends State<SettingsPage> {
               _buildSettingTile(
                 icon: FeatherIcons.fileText,
                 title: 'Privacy Policy',
-                onTap: () {},
+                onTap: () => const PrivacyPolicyPage().launch(context),
               ),
               _buildSettingTile(
                 icon: FeatherIcons.helpCircle,
                 title: 'Terms of Service',
-                onTap: () {},
+                onTap: () => const TermsOfServicePage().launch(context),
+              ),
+
+              32.height,
+              // Danger Zone Section
+              _buildSectionHeader('DANGER ZONE'),
+              _buildDangerTile(
+                icon: FeatherIcons.trash2,
+                title: 'Delete Account',
+                subtitle: 'Permanently remove your account and data',
+                onTap: () => const DeleteAccountPage().launch(context),
               ),
               
               40.height,
@@ -120,9 +140,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   text: 'Log Out',
                   textStyle: GoogleFonts.montserrat(color: white, fontWeight: FontWeight.w700),
                   color: primary,
-                  onTap: () {
+                  onTap: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.remove('access_token');
+                    await prefs.setBool('home', false);
+                    setValue('access_token', '');
                     setValue('home', false);
-                    const LoginScreen().launch(context, isNewTask: true);
+                    if (context.mounted) const LoginScreen().launch(context, isNewTask: true);
                   },
                   shapeBorder: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                 ),
@@ -231,6 +255,60 @@ class _SettingsPageState extends State<SettingsPage> {
               activeTrackColor: primary.withOpacity(0.2),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDangerTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 8.h),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.all(16.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF5F5),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFFFD8D8)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, color: const Color(0xFFEF3F53), size: 20.sp),
+              20.width,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Cinta',
+                        fontSize: 15.sp,
+                        color: const Color(0xFFC53030),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    4.height,
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontFamily: 'Cinta',
+                        fontSize: 12.sp,
+                        color: const Color(0xFFEF3F53).withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(FeatherIcons.chevronRight, color: const Color(0xFFFFC5C5), size: 18.sp),
+            ],
+          ),
         ),
       ),
     );

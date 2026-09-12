@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nb_utils/nb_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_feather_icons/flutter_feather_icons.dart';
@@ -13,6 +15,7 @@ import 'package:stylclick/modules/account.dart';
 import 'package:stylclick/modules/order/saved_order.dart';
 import 'package:stylclick/modules/vendor/index.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/shared/constants/colors.dart';
 import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/shared/constants/strings.dart';
@@ -37,25 +40,100 @@ class _EditProfileState extends State<EditProfile> {
     _scaffoldKey.currentState?.openEndDrawer();
   }
 
-  String? selectedCountry = 'Nigeria';
-  String? selectedState = 'Abuja';
-  String? selectedCity = 'Nyanya';
+  String? selectedState = 'Lagos';
+  List<String> states = ['Abuja', 'Lagos', 'Kano', 'Oyo', 'Rivers', 'Enugu', 'Delta', 'Kaduna', 'Edo', 'Ogun'];
 
-  List<String> countries = ['Nigeria', 'Ghana', 'Kenya'];
-  List<String> states = ['Abuja', 'Lagos', 'Kano'];
-  List<String> cities = ['Nyanya', 'Ikeja', 'Wuse'];
+  // Profile Picture state
+  String? _profilePicPath;
+  final ImagePicker _picker = ImagePicker();
 
   // Text controllers bound to the editable form fields
-  final TextEditingController _fullNameController = TextEditingController(text: getStringAsync('fName') + ' ' + getStringAsync('lName'));
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
 
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    _fullNameController.text = '${getStringAsync('fName')} ${getStringAsync('lName')}'.trim();
+    _emailController.text = getStringAsync('email');
+    _phoneController.text = getStringAsync('phone');
+    _addressController.text = getStringAsync('address');
+    _loadProfileData();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('profile_picture', image.path);
+        setValue('profile_picture', image.path);
+        setState(() {
+          _profilePicPath = image.path;
+        });
+        toast('Profile picture updated!');
+      }
+    } catch (e) {
+      log('[EDIT_PROFILE] Error picking image: $e');
+    }
+  }
+
+  void _loadProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final fName = prefs.getString('fName') ?? getStringAsync('fName');
+    final lName = prefs.getString('lName') ?? getStringAsync('lName');
+    final email = prefs.getString('email') ?? getStringAsync('email');
+    final phone = prefs.getString('phone') ?? getStringAsync('phone');
+    final address = prefs.getString('address') ?? getStringAsync('address');
+    final state = prefs.getString('state') ?? getStringAsync('state');
+    final pic = prefs.getString('profile_picture') ?? getStringAsync('profile_picture');
+
+    setState(() {
+      if (pic.isNotEmpty) _profilePicPath = pic;
+      final full = '$fName $lName'.trim();
+      if (full.isNotEmpty) _fullNameController.text = full;
+      if (email.isNotEmpty) _emailController.text = email;
+      if (phone.isNotEmpty) _phoneController.text = phone;
+      if (address.isNotEmpty) _addressController.text = address;
+      if (state.isNotEmpty && states.contains(state)) selectedState = state;
+    });
+
+    try {
+      final res = await ProfileService.instance.fetchProfile();
+      if (res.status == true && res.data != null) {
+        final pData = res.data!['data'] ?? res.data!['user'] ?? res.data!;
+        if (pData is Map) {
+          final apiFn = pData['first_name'] ?? pData['firstname'] ?? pData['fName'] ?? '';
+          final apiLn = pData['last_name'] ?? pData['lastname'] ?? pData['lName'] ?? '';
+          final apiEm = pData['email'] ?? '';
+          final apiPh = pData['phone'] ?? pData['phone_number'] ?? '';
+          final apiAddr = pData['address'] ?? '';
+          final apiState = pData['state']?.toString() ?? '';
+
+          setState(() {
+            final apiFull = '$apiFn $apiLn'.trim();
+            if (apiFull.isNotEmpty) _fullNameController.text = apiFull;
+            if (apiEm.isNotEmpty) _emailController.text = apiEm;
+            if (apiPh.isNotEmpty) _phoneController.text = apiPh;
+            if (apiAddr.isNotEmpty) _addressController.text = apiAddr;
+            if (apiState.isNotEmpty && states.contains(apiState)) selectedState = apiState;
+          });
+        }
+      }
+    } catch (e) {
+      log('[EDIT_PROFILE] Remote profile sync log: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
@@ -66,17 +144,22 @@ class _EditProfileState extends State<EditProfile> {
               // Header
               Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(gradient: brandGradient),
-                padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 20.h, bottom: 24.h),
+                color: cream,
+                padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
                 child: Row(
                   children: [
                     InkWell(
-                      onTap: _openDrawer,
-                      child: Image.asset(
-                        menuIcon,
-                        height: 24.h,
-                        width: 24.w,
-                        color: Colors.white,
+                      onTap: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          finish(context);
+                        }
+                      },
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: ink,
+                        size: 24.sp,
                       ),
                     ),
                     const Spacer(),
@@ -84,10 +167,10 @@ class _EditProfileState extends State<EditProfile> {
                       'Edit Profile',
                       style: TextStyle(
                         fontFamily: 'Cinta',
-                        fontSize: 26.sp,
-                        color: Colors.white,
+                        fontSize: 18.sp,
+                        color: ink,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const Spacer(),
@@ -97,7 +180,7 @@ class _EditProfileState extends State<EditProfile> {
                         notificationIcon,
                         height: 24.h,
                         width: 24.w,
-                        color: Colors.white,
+                        color: ink,
                       ),
                     ),
                   ],
@@ -106,34 +189,39 @@ class _EditProfileState extends State<EditProfile> {
               40.height,
               // Avatar Section
               Center(
-                child: Stack(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.all(6.w),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: primary.withOpacity(0.3), width: 2),
-                      ),
-                      child: CircleAvatar(
-                        radius: 60.r,
-                        backgroundColor: white,
-                        backgroundImage: const AssetImage(defaultUserImage),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 5,
-                      right: 5,
-                      child: Container(
-                        padding: EdgeInsets.all(8.w),
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6.w),
                         decoration: BoxDecoration(
-                          color: primary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: white, width: 3),
+                          border: Border.all(color: primary.withOpacity(0.3), width: 2),
                         ),
-                        child: Icon(FeatherIcons.camera, color: white, size: 18.sp),
+                        child: CircleAvatar(
+                          radius: 60.r,
+                          backgroundColor: white,
+                          backgroundImage: (_profilePicPath != null && _profilePicPath!.isNotEmpty && File(_profilePicPath!).existsSync())
+                              ? FileImage(File(_profilePicPath!)) as ImageProvider
+                              : const AssetImage(defaultUserImage),
+                        ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        bottom: 5,
+                        right: 5,
+                        child: Container(
+                          padding: EdgeInsets.all(8.w),
+                          decoration: BoxDecoration(
+                            color: primary,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: white, width: 3),
+                          ),
+                          child: Icon(FeatherIcons.camera, color: white, size: 18.sp),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               32.height,
@@ -145,25 +233,15 @@ class _EditProfileState extends State<EditProfile> {
                   children: [
                     _buildSectionTitle('Personal Information'),
                     20.height,
-                    _buildTextField('Full Name', _fullNameController.text.isNotEmpty ? _fullNameController.text : 'Oluwafemi Doe', FeatherIcons.user, controller: _fullNameController),
+                    _buildTextField('Full Name', 'Enter full name', FeatherIcons.user, controller: _fullNameController),
                     16.height,
-                    _buildTextField('Address', 'No 12 Asombi Street, Nyanya Abuja', FeatherIcons.mapPin, controller: _addressController),
+                    _buildTextField('Email Address', 'Enter email address', FeatherIcons.mail, controller: _emailController),
                     16.height,
-                    Row(
-                      children: [
-                        Expanded(child: _buildDropdown('City', selectedCity, cities, (v) => setState(() => selectedCity = v))),
-                        16.width,
-                        Expanded(child: _buildDropdown('State', selectedState, states, (v) => setState(() => selectedState = v))),
-                      ],
-                    ),
+                    _buildTextField('Phone Number', 'Enter phone number', FeatherIcons.phone, controller: _phoneController),
                     16.height,
-                    _buildDropdown('Country', selectedCountry, countries, (v) => setState(() => selectedCountry = v)),
-                    32.height,
-                    _buildSectionTitle('Additional Settings'),
+                    _buildDropdown('State', selectedState, states, (v) => setState(() => selectedState = v)),
                     16.height,
-                    _buildSettingsLink('KYC Settings', FeatherIcons.shield, () {}),
-                    12.height,
-                    _buildSettingsLink('Bank Account', FeatherIcons.home, () {}),
+                    _buildTextField('Address', 'Enter address', FeatherIcons.mapPin, controller: _addressController),
                     40.height,
                     // Save Button
                     InkWell(
@@ -175,13 +253,36 @@ class _EditProfileState extends State<EditProfile> {
                               final res = await ProfileService.instance.updateProfile(
                                 fullName: _fullNameController.text.trim(),
                                 address: _addressController.text.trim(),
-                                city: selectedCity ?? '',
+                                city: '',
                                 state: selectedState ?? '',
-                                country: selectedCountry ?? '',
+                                country: 'Nigeria',
                               );
                               if (mounted) {
                                 setState(() => _isSaving = false);
                                 if (res.status == true) {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  final parts = _fullNameController.text.trim().split(' ');
+                                  final firstName = parts.isNotEmpty ? parts.first : '';
+                                  final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+                                  final email = _emailController.text.trim();
+                                  final phone = _phoneController.text.trim();
+                                  final address = _addressController.text.trim();
+                                  final state = selectedState ?? '';
+
+                                  await prefs.setString('fName', firstName);
+                                  await prefs.setString('lName', lastName);
+                                  await prefs.setString('email', email);
+                                  await prefs.setString('phone', phone);
+                                  await prefs.setString('address', address);
+                                  await prefs.setString('state', state);
+
+                                  setValue('fName', firstName);
+                                  setValue('lName', lastName);
+                                  setValue('email', email);
+                                  setValue('phone', phone);
+                                  setValue('address', address);
+                                  setValue('state', state);
+
                                   const SuccessPage(message: 'Your profile has been successfully\nupdated').launch(context);
                                 } else {
                                   showMessage(context, res.message ?? 'Failed to save profile. Please try again.');
@@ -231,7 +332,7 @@ class _EditProfileState extends State<EditProfile> {
 
   Widget _buildSectionTitle(String title) {
     return Text(
-      title.toUpperCase(),
+      title,
       style: TextStyle(
         fontFamily: 'Cinta',
         fontSize: 12.sp,
@@ -243,45 +344,10 @@ class _EditProfileState extends State<EditProfile> {
   }
 
   Widget _buildTextField(String label, String hint, IconData icon, {TextEditingController? controller}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontFamily: 'Cinta', 
-            fontSize: 14.sp,
-            color: ink,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        8.height,
-        Container(
-          height: 52.h,
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          decoration: BoxDecoration(
-            color: white,
-            borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: sand),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: sand, size: 18.sp),
-              16.width,
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  style: TextStyle(fontFamily: 'Cinta', fontSize: 14.sp, color: ink),
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    hintStyle: TextStyle(fontFamily: 'Cinta', color: ink.withOpacity(0.3)),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return CustomTextField(
+      controller: controller,
+      label: label,
+      hintText: hint,
     );
   }
 
@@ -359,138 +425,7 @@ class _EditProfileState extends State<EditProfile> {
     );
   }
 
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            40.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primary.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 35.r,
-                      backgroundColor: white,
-                      backgroundImage: const AssetImage(defaultUserImage),
-                    ),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: TextStyle(fontFamily: 'Cinta', 
-                          color: ink,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      4.height,
-                      InkWell(
-                        onTap: () => Navigator.pop(context),
-                        child: Text(
-                          'Back to Profile',
-                          style: GoogleFonts.montserrat(
-                            color: primary,
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Become a Vendor', () => VendorPage().launch(context)),
-                  _buildDrawerItem(context, 'Share & Earn', () {}),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Settings', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Support', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Logout', () {
-                    setValue('home', false);
-                    LoginScreen().launch(context, isNewTask: true);
-                  }),
-                  40.height,
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              width: 10.w,
-              height: 10.h,
-              decoration: BoxDecoration(
-                color: sand.withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            20.width,
-            Text(
-              title,
-              style: TextStyle(fontFamily: 'Cinta', 
-                fontSize: 16.sp,
-                color: ink,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget buildNotificationDrawer(BuildContext context) {
     return Drawer(

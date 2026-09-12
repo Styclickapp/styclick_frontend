@@ -14,8 +14,10 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/modules/auth/login.dart';
 import 'package:stylclick/modules/vendor/index.dart';
+import 'package:stylclick/shared/utils/helpers.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({Key? key}) : super(key: key);
@@ -49,7 +51,7 @@ class _WalletPageState extends State<WalletPage> {
         _loadingBalance = false;
         if (res.status == true && res.data != null) {
           final raw = res.data!['balance'] ?? res.data!['amount'] ?? res.data!['wallet_balance'];
-          _balance = raw != null ? 'NGN ${raw.toString()}' : 'NGN 0.00';
+          _balance = raw != null ? 'NGN ${formatPrice(raw)}' : 'NGN 0.00';
         } else {
           _balance = 'Unavailable';
         }
@@ -61,7 +63,7 @@ class _WalletPageState extends State<WalletPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
@@ -72,29 +74,35 @@ class _WalletPageState extends State<WalletPage> {
               // Header
               Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(gradient: brandGradient),
-                padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 16.h, bottom: 24.h),
+                color: cream,
+                padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
                 child: Row(
                   children: [
                     InkWell(
-                      onTap: _openDrawer,
-                      child: Image.asset(menuIcon, height: 24.h, width: 24.w, color: Colors.white),
+                      onTap: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          finish(context);
+                        }
+                      },
+                      child: Icon(FeatherIcons.arrowLeft, color: ink, size: 24.sp),
                     ),
                     const Spacer(),
                     Text(
                       'Wallet',
                       style: TextStyle(
                         fontFamily: 'Cinta',
-                        fontSize: 26.sp,
-                        color: Colors.white,
+                        fontSize: 18.sp,
+                        color: ink,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const Spacer(),
                     InkWell(
                       onTap: _openEndDrawer,
-                      child: Image.asset(notificationIcon, height: 24.h, width: 24.w, color: Colors.white),
+                      child: Image.asset(notificationIcon, height: 24.h, width: 24.w, color: ink),
                     ),
                   ],
                 ),
@@ -338,81 +346,7 @@ class _WalletPageState extends State<WalletPage> {
     );
   }
 
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: primary.withOpacity(0.5), width: 2)),
-                    child: CircleAvatar(radius: 35.r, backgroundColor: white, backgroundImage: const AssetImage(defaultUserImage)),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('You', style: TextStyle(fontFamily: 'Cinta', color: ink, fontSize: 24.sp, fontWeight: FontWeight.w700)),
-                      4.height,
-                      Text('Dashboard', style: GoogleFonts.montserrat(color: primary, fontSize: 10.sp, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(padding: EdgeInsets.symmetric(horizontal: 24.w), child: Divider(color: sand, thickness: 1)),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'Home', () { currentIndex = 0; const Nav().launch(context, isNewTask: true); }),
-                  _buildDrawerItem(context, 'Catalogue', () { currentIndex = 1; const Nav().launch(context, isNewTask: true); }),
-                  _buildDrawerItem(context, 'Account', () { currentIndex = 2; const Nav().launch(context, isNewTask: true); }),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12.h), child: Divider(color: sand, thickness: 1)),
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedItemsPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12.h), child: Divider(color: sand, thickness: 1)),
-                  _buildDrawerItem(context, 'Become a Vendor', () => VendorPage().launch(context)),
-                  _buildDrawerItem(context, 'Share & Earn', () => const ShareEarnPage().launch(context)),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12.h), child: Divider(color: sand, thickness: 1)),
-                  _buildDrawerItem(context, 'Settings', () => const SettingsPage().launch(context)),
-                  _buildDrawerItem(context, 'Help & Support', () { currentIndex = 2; const Nav().launch(context, isNewTask: true); }),
-                  Padding(padding: EdgeInsets.symmetric(vertical: 12.h), child: Divider(color: sand, thickness: 1)),
-                  _buildDrawerItem(context, 'Logout', () { setValue('home', false); LoginScreen().launch(context, isNewTask: true); }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(width: 10.w, height: 10.h, decoration: BoxDecoration(color: sand.withOpacity(0.8), shape: BoxShape.circle)),
-            20.width,
-            Text(title, style: TextStyle(fontFamily: 'Cinta', fontSize: 16.sp, color: ink, fontWeight: FontWeight.w500)),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget buildNotificationDrawer(BuildContext context) {
     return Drawer(

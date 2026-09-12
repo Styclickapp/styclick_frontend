@@ -71,7 +71,7 @@ class CustomTextField extends StatelessWidget {
       children: [
         if (label.validate().isNotEmpty)
           Text(
-            label!.toUpperCase(),
+            _toTitleCase(label!),
             style: GoogleFonts.montserrat(
               fontSize: 11.sp,
               color: labelColor ?? textLight,
@@ -103,7 +103,7 @@ class CustomTextField extends StatelessWidget {
             hintText: hintText,
             hintStyle: TextStyle(
               fontFamily: cinta,
-              color: hintTextColor ?? sand,
+              color: hintTextColor ?? textLight.withOpacity(0.5),
               fontWeight: FontWeight.w400,
               fontSize: 14.sp,
             ),
@@ -142,4 +142,19 @@ class CustomTextField extends StatelessWidget {
       ],
     );
   }
+}
+
+String _toTitleCase(String text) {
+  if (text.isEmpty) return text;
+  return text.split(' ').map((word) {
+    if (word.isEmpty) return word;
+    return word.replaceAllMapped(RegExp(r'[a-zA-Z]+'), (match) {
+      String m = match.group(0)!;
+      if (m == 'NGN') return 'NGN';
+      if (m == 'CAC') return 'CAC';
+      if (m == 'NIN') return 'NIN';
+      if (m == 'ID') return 'ID';
+      return m[0].toUpperCase() + m.substring(1).toLowerCase();
+    });
+  }).join(' ');
 }

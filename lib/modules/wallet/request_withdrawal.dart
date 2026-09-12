@@ -151,12 +151,16 @@ class _RequestWithdrawalState extends State<RequestWithdrawal> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _selectedBank,
-                              style: TextStyle(fontFamily: 'Cinta', 
-                                fontSize: 15.sp,
-                                color: _selectedBank == 'Select Bank' ? sand : ink,
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                _selectedBank,
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: TextStyle(fontFamily: 'Cinta', 
+                                  fontSize: 15.sp,
+                                  color: _selectedBank == 'Select Bank' ? sand : ink,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             Icon(FeatherIcons.chevronDown, color: sand, size: 20.sp),

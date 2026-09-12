@@ -13,6 +13,7 @@ const String adminSignIn     = "auth/admin/login";
 // ── Profile ───────────────────────────────────────────────────────────────
 const String getProfile      = "user/profile";
 const String updateProfile   = "user/update-profile";
+const String deleteAccount   = "auth/delete-account";
 
 // ── Wallet ────────────────────────────────────────────────────────────────
 const String walletBalance   = "wallet/dashboard";
@@ -21,6 +22,26 @@ const String walletFund      = "wallet/add-fund";
 const String walletWithdraw  = "wallet/withdraw";
 
 // ── Vendor / Seller / Rider ───────────────────────────────────────────────
-const String becomeVendor    = "user/designer/register";
-const String becomeSeller    = "user/fabric-seller/register";
-const String becomeRider     = "user/riders/register";
+const String becomeVendor       = "vendor/apply/designer";
+const String becomeSeller       = "vendor/apply/fabric-seller";
+const String becomeRider        = "vendor/apply/rider";
+
+// ── Vendor Profile & Media ───────────────────────────────────────────────
+const String vendorProfile      = "vendor/profile";
+const String vendorUpload       = "vendor/upload";
+const String vendorBusinessHours = "vendor/business-hours";
+const String vendorPolicies    = "vendor/policies";
+
+// ── Vendor Products ──────────────────────────────────────────────────────
+const String vendorProducts     = "vendor/products";
+const String vendorUploadImage  = "vendor/products/upload-image";
+
+// ── Public Products / Catalogue ───────────────────────────────────────────
+const String publicProducts        = "products";
+const String publicVendorProfile   = "vendors";  // GET vendors/:id
+
+// ── Chats / Messages ───────────────────────────────────────────────────────
+const String chatInbox        = "chats";
+const String chatMessages     = "chats/messages";
+const String chatSendMessage  = "chats/message";
+

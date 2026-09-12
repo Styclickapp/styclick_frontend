@@ -15,6 +15,7 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/modules/auth/login.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 
@@ -40,7 +41,7 @@ class _VendorPageState extends State<VendorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      drawer: buildDrawer(context),
+      drawer: const AppDrawer(),
       endDrawer: buildNotificationDrawer(context),
       backgroundColor: cream,
       body: SafeArea(
@@ -51,17 +52,22 @@ class _VendorPageState extends State<VendorPage> {
               // Header
               Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(gradient: brandGradient),
-                padding: EdgeInsets.only(left: 17.w, right: 17.w, top: 16.h, bottom: 24.h),
+                color: cream,
+                padding: EdgeInsets.symmetric(horizontal: 17.w, vertical: 12.h),
                 child: Row(
                   children: [
                     InkWell(
-                      onTap: _openDrawer,
-                      child: Image.asset(
-                        menuIcon,
-                        height: 24.h,
-                        width: 24.w,
-                        color: Colors.white,
+                      onTap: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        } else {
+                          finish(context);
+                        }
+                      },
+                      child: Icon(
+                        FeatherIcons.arrowLeft,
+                        color: ink,
+                        size: 24.sp,
                       ),
                     ),
                     const Spacer(),
@@ -69,10 +75,10 @@ class _VendorPageState extends State<VendorPage> {
                       'Become a Vendor',
                       style: TextStyle(
                         fontFamily: 'Cinta',
-                        fontSize: 26.sp,
-                        color: Colors.white,
+                        fontSize: 18.sp,
+                        color: ink,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: -1.0,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     const Spacer(),
@@ -82,7 +88,7 @@ class _VendorPageState extends State<VendorPage> {
                         notificationIcon,
                         height: 24.h,
                         width: 24.w,
-                        color: Colors.white,
+                        color: ink,
                       ),
                     ),
                   ],
@@ -95,16 +101,7 @@ class _VendorPageState extends State<VendorPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Grow with Styclick',
-                      style: TextStyle(fontFamily: 'Cinta', 
-                        fontSize: 32.sp,
-                        color: ink,
-                        fontWeight: FontWeight.w700,
-                        height: 1.1,
-                      ),
-                    ),
-                    12.height,
+                    8.height,
                     Text(
                       'Join our curated ecosystem of creators, suppliers, and logistics experts. Select your path below.',
                       style: TextStyle(fontFamily: 'Cinta', 
@@ -123,24 +120,25 @@ class _VendorPageState extends State<VendorPage> {
                 child: Column(
                   children: [
                     _buildPartnerCard(
-                      title: 'Fashion Designer',
-                      desc: 'Showcase your craftsmanship to a global audience.',
+                      title: 'Tailor',
+                      desc: 'Create & sell custom garments, fabrics, or ready-made clothes.',
                       iconAsset: sewingMachine,
                       onTap: () => const BecomeVendor().launch(context),
                     ),
                     20.height,
                     _buildPartnerCard(
                       title: 'Fabrics Seller',
-                      desc: 'Supply premium materials to top designers.',
+                      desc: 'Sell premium fabrics and raw materials only.',
                       iconAsset: fabric,
                       onTap: () => const BecomeSeller().launch(context),
                     ),
                     20.height,
                     _buildPartnerCard(
                       title: 'Dispatch Rider',
-                      desc: 'Be the bridge between fashion and the customer.',
+                      desc: 'Deliver orders and perform dispatches only.',
                       iconAsset: dispatchRider,
                       onTap: () => const BecomeRider().launch(context),
+                      disabled: true,
                     ),
                     40.height,
                   ],
@@ -153,16 +151,22 @@ class _VendorPageState extends State<VendorPage> {
     );
   }
 
-  Widget _buildPartnerCard({required String title, required String desc, required String iconAsset, required VoidCallback onTap}) {
+  Widget _buildPartnerCard({
+    required String title,
+    required String desc,
+    required String iconAsset,
+    required VoidCallback onTap,
+    bool disabled = false,
+  }) {
     return InkWell(
-      onTap: onTap,
+      onTap: disabled ? () => toast('Coming soon') : onTap,
       child: Container(
         width: double.infinity,
-        height: 100.h,
+        padding: EdgeInsets.symmetric(vertical: 16.h),
         decoration: BoxDecoration(
           color: white,
           borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: sand),
+          border: Border.all(color: disabled ? Colors.transparent : sand),
           boxShadow: [
             BoxShadow(
               color: ink.withOpacity(0.02),
@@ -174,18 +178,17 @@ class _VendorPageState extends State<VendorPage> {
         child: Row(
           children: [
             16.width,
-            // Small role icon from original assets, styled beautifully!
             Container(
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.05),
+                color: (disabled ? Colors.grey : primary).withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Image.asset(
                 iconAsset,
                 height: 40.h,
                 width: 40.w,
-                color: primary,
+                color: disabled ? Colors.grey : primary,
               ),
             ),
             16.width,
@@ -199,7 +202,7 @@ class _VendorPageState extends State<VendorPage> {
                     style: TextStyle(
                       fontFamily: 'Cinta',
                       fontSize: 18.sp,
-                      color: ink,
+                      color: disabled ? Colors.grey : ink,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -209,9 +212,9 @@ class _VendorPageState extends State<VendorPage> {
                     style: TextStyle(
                       fontFamily: cinta,
                       fontSize: 12.sp,
-                      color: textLight,
+                      color: disabled ? Colors.grey.shade400 : textLight,
                     ),
-                    maxLines: 1,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -222,152 +225,10 @@ class _VendorPageState extends State<VendorPage> {
               margin: EdgeInsets.only(right: 16.w),
               padding: EdgeInsets.all(8.w),
               decoration: BoxDecoration(
-                color: primary.withOpacity(0.08),
+                color: (disabled ? Colors.grey : primary).withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
-              child: Icon(FeatherIcons.arrowRight, color: primary, size: 16.sp),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget buildDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(4.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: primary.withOpacity(0.5), width: 2),
-                    ),
-                    child: CircleAvatar(
-                      radius: 35.r,
-                      backgroundColor: white,
-                      backgroundImage: const AssetImage(defaultUserImage),
-                    ),
-                  ),
-                  20.width,
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: TextStyle(fontFamily: 'Cinta', 
-                          color: ink,
-                          fontSize: 24.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      4.height,
-                      Text(
-                        'DASHBOARD',
-                        style: GoogleFonts.montserrat(
-                          color: primary,
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            30.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildDrawerItem(context, 'Home', () {
-                    currentIndex = 0;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Catalogue', () {
-                    currentIndex = 1;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  _buildDrawerItem(context, 'Account', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'My Invoices', () => const TransactionHistory().launch(context)),
-                  _buildDrawerItem(context, 'My Orders', () => const SavedOrderPage().launch(context)),
-                  _buildDrawerItem(context, 'Saved', () => const SavedItemsPage().launch(context)),
-                  _buildDrawerItem(context, 'Chat', () {}),
-                  _buildDrawerItem(context, 'Wallet', () => const WalletPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Become a vendor', () => const VendorPage().launch(context)),
-                  _buildDrawerItem(context, 'Share & Earn', () => const ShareEarnPage().launch(context)),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Settings', () => const SettingsPage().launch(context)),
-                  _buildDrawerItem(context, 'Help & Support', () {
-                    currentIndex = 2;
-                    const Nav().launch(context, isNewTask: true);
-                  }),
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                    child: Divider(color: sand, thickness: 1),
-                  ),
-                  _buildDrawerItem(context, 'Logout', () {
-                    setValue('home', false);
-                    LoginScreen().launch(context, isNewTask: true);
-                  }),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem(BuildContext context, String title, VoidCallback onTap) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 12.h),
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              width: 10.w,
-              height: 10.h,
-              decoration: BoxDecoration(
-                color: sand.withOpacity(0.8),
-                shape: BoxShape.circle,
-              ),
-            ),
-            20.width,
-            Text(
-              title,
-              style: TextStyle(fontFamily: 'Cinta', 
-                fontSize: 16.sp,
-                color: ink,
-                fontWeight: FontWeight.w500,
-              ),
+              child: Icon(FeatherIcons.arrowRight, color: disabled ? Colors.grey : primary, size: 16.sp),
             ),
           ],
         ),

@@ -1,4 +1,3 @@
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +12,8 @@ import 'package:stylclick/core/services/auth_service.dart';
 import 'package:stylclick/shared/widgets/snack_bar.dart';
 import 'package:stylclick/shared/widgets/custom_textfield.dart';
 import 'package:stylclick/shared/constants/strings.dart';
+
+import 'package:stylclick/core/services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -42,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void initState() {
     super.initState();
     log('[REGISTER] RegisterScreen initialized');
+    ApiService.instance.warmUpBackend();
   }
 
   @override
@@ -104,7 +106,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               8.height,
               Text(
-                'Join the StyClick Community Today',
+                'Join StyClick',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontFamily: 'Cinta', 
                   fontSize: 14.sp,
@@ -135,11 +137,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
               ),
               20.height,
+              CustomTextField(
+                controller: phoneController,
+                label: 'Phone Number',
+                hintText: 'Mobile number',
+                textInputType: TextInputType.phone,
+                prefixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    16.width,
+                    Text(
+                      '+234',
+                      style: TextStyle(
+                        fontFamily: 'Cinta',
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15.sp,
+                        color: ink,
+                      ),
+                    ),
+                    8.width,
+                  ],
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Phone number is required';
+                  if (value.length < 10 || value.length > 11) return '10-11 digits';
+                  return null;
+                },
+              ),
+              20.height,
+              CustomTextField(
+                controller: addressController,
+                label: 'Address',
+                hintText: 'Enter address',
+                validator: (value) {
+                  if (value == null || value.isEmpty) return 'Address is required';
+                  return null;
+                },
+              ),
+              20.height,
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Phone Number',
+                    'State',
                     style: GoogleFonts.montserrat(
                       fontSize: 10.sp,
                       color: textLight,
@@ -148,110 +188,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   6.height,
-                  Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12.r),
-                          color: white,
-                          border: Border.all(color: sand),
-                        ),
-                        child: CountryCodePicker(
-                          onInit: (_countryCode) {
-                            countryCode = _countryCode.toString();
-                          },
-                          initialSelection: 'NG',
-                          favorite: const ['+234', 'NG'],
-                          onChanged: (_countryCode) {
-                            countryCode = _countryCode.toString();
-                          },
-                          showCountryOnly: false,
-                          showOnlyCountryWhenClosed: false,
-                          alignLeft: false,
-                          textStyle: TextStyle(fontFamily: 'Cinta', color: ink, fontSize: 14.sp),
-                          dialogBackgroundColor: cream,
-                          searchStyle: TextStyle(fontFamily: 'Cinta', color: ink),
-                          dialogTextStyle: TextStyle(fontFamily: 'Cinta', color: ink),
-                          barrierColor: ink.withOpacity(0.5),
-                        ),
-                      ),
-                      12.width,
-                      Expanded(
-                        child: CustomTextField(
-                          controller: phoneController,
-                          label: '',
-                          hintText: 'Mobile number',
-                          textInputType: TextInputType.phone,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) return 'Required';
-                            if (value.length < 10 || value.length > 11) return '10-11 digits';
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              20.height,
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'State',
-                          style: GoogleFonts.montserrat(
-                            fontSize: 10.sp,
-                            color: textLight,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        6.height,
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12.w),
-                          decoration: BoxDecoration(
-                            color: white,
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(color: sand),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              isExpanded: true,
-                              value: selectedState,
-                              dropdownColor: cream,
-                              icon: Icon(Icons.keyboard_arrow_down_rounded, color: textLight, size: 20.sp),
-                              hint: Text('Select State', style: TextStyle(fontFamily: 'Cinta', color: textLight.withOpacity(0.5), fontSize: 14.sp)),
-                              items: states.map((state) {
-                                return DropdownMenuItem<String>(
-                                  value: state,
-                                  child: Text(state, style: TextStyle(fontFamily: 'Cinta', color: ink, fontSize: 14.sp)),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  selectedState = value;
-                                });
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(horizontal: 12.w),
+                    decoration: BoxDecoration(
+                      color: white,
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(color: sand),
                     ),
-                  ),
-                  16.width,
-                  Expanded(
-                    child: CustomTextField(
-                      controller: addressController,
-                      label: 'Address',
-                      hintText: 'Enter address',
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Required';
-                        return null;
-                      },
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedState,
+                        dropdownColor: cream,
+                        icon: Icon(Icons.keyboard_arrow_down_rounded, color: textLight, size: 20.sp),
+                        hint: Text('Select State', style: TextStyle(fontFamily: 'Cinta', color: textLight.withOpacity(0.5), fontSize: 14.sp)),
+                        items: states.map((state) {
+                          return DropdownMenuItem<String>(
+                            value: state,
+                            child: Text(state, style: TextStyle(fontFamily: 'Cinta', color: ink, fontSize: 14.sp)),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            selectedState = value;
+                          });
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -345,99 +308,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         VerifyUser(
                           email: email,
                           phone: phone,
+                          password: password,
                         ).launch(context);
                       } else {
                         log('[REGISTER] Signup failed: ${res.message}');
-                        final lowerMsg = (res.message ?? '').toLowerCase();
-                        final isEmailServiceError = lowerMsg.contains('credit') || 
-                            lowerMsg.contains('unauthorized') || 
-                            lowerMsg.contains('sendgrid') || 
-                            lowerMsg.contains('email');
-
-                        if (isEmailServiceError) {
-                          showDialog(
-                            context: context,
-                            builder: (dialogCtx) => AlertDialog(
-                              backgroundColor: cream,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16.r),
-                                side: const BorderSide(color: sand),
-                              ),
-                              title: Row(
-                                children: [
-                                  Icon(Icons.warning_amber_rounded, color: primary, size: 24.sp),
-                                  8.width,
-                                  Expanded(
-                                    child: Text(
-                                      'Email Service Issue',
-                                      style: TextStyle(
-                                        fontFamily: 'Cinta',
-                                        fontSize: 18.sp,
-                                        fontWeight: FontWeight.w700,
-                                        color: ink,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              content: Text(
-                                'The registration request failed with: "${res.message}".\n\n'
-                                'This typically indicates that the backend email service (SendGrid) has run out of credits or has incorrect API keys.\n\n'
-                                'Would you like to bypass this error and proceed directly to OTP Verification (using the local dev bypass)?',
-                                style: TextStyle(
-                                  fontFamily: 'Cinta',
-                                  fontSize: 14.sp,
-                                  color: textLight,
-                                  height: 1.4,
-                                ),
-                              ),
-                              actionsPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(dialogCtx),
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      fontFamily: 'Cinta',
-                                      fontSize: 14.sp,
-                                      color: textLight,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(dialogCtx);
-                                    log('[REGISTER] User opted to bypass signup error and proceed to OTP verification');
-                                    VerifyUser(
-                                      email: email,
-                                      phone: phone,
-                                    ).launch(context);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: primary,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8.r),
-                                    ),
-                                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                                    elevation: 0,
-                                  ),
-                                  child: Text(
-                                    'Bypass & Proceed',
-                                    style: TextStyle(
-                                      fontFamily: 'Cinta',
-                                      fontSize: 14.sp,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else {
-                          showMessage(context, res.message ?? 'Registration failed. Please try again.');
-                        }
+                        showMessage(context, res.message ?? 'Registration failed. Please try again.');
                       }
                     } catch (e) {
                       log('[REGISTER] Unexpected error during signup: ${e.toString()}');

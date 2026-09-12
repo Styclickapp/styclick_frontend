@@ -9,15 +9,15 @@ This document tracks completed UI/flow adjustments and outlines outstanding inte
 - [x] **Scrolling Mitigation**: Adjusted vertical layouts (compacted logo container size, shrunk text sizes, reduced spacer heights) to ensure the login screen and walkthrough screen fit entirely inside the display boundary without needing to scroll.
 - [x] **Automatic Email Verification Redirect**: Updated the login response handler to automatically detect unverified account errors (`401` with message `"Please verify your email address..."`) and redirect the user directly to the OTP verification screen.
 - [x] **OTP Verification Screen Adjustments**: Moved the countdown text and the **Resend** button onto separate lines within a clean vertical column layout.
-- [x] **Temporary Bypass for Verification**: Configured a mock bypass in `verify_user.dart` that allows *any* 4-digit code to successfully verify and log the user in locally for development/testing, bypassing the backend API verification call.
-- [x] **Temporary Bypass for Signup (Email Service Error)**: Configured a bypass mechanism on the registration screen that detects SendGrid/unauthorized email provider errors and allows the developer/user to bypass the blocker and proceed to OTP verification.
+- [x] **Verification API Connection**: Removed temporary mock bypasses; the app now makes production API verification calls.
+- [x] **Signup Error Handling**: Removed SendGrid/email error bypass; the sign-up flow now handles standard error alerts directly, since Resend email service integration is fully functional.
 
 ---
 
 ## Pending Tasks (Once Backend Access is Granted)
 
 ### 1. Restore Production Verification API Call
-- [ ] Revert the temporary bypass in [verify_user.dart](file:///c:/Code/Paid%20Projects/StyClick/lib/modules/auth/verify_user.dart#L184) to call the real backend validation service:
+- [x] Revert the temporary bypass in [verify_user.dart](file:///c:/Code/Paid%20Projects/StyClick/lib/modules/auth/verify_user.dart#L80) to call the real backend validation service:
   ```dart
   final res = await AuthService.instance.verify(
     email: widget.email ?? '',
