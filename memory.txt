@@ -1109,6 +1109,66 @@ diff --git a/lib/modules/order/checkout_payment.dart b/lib/modules/order/checkou
 +                  ),
 ```
 
+## Interactive Notifications Drawer & Central State Management
+
+- **User Prompt**: "quickly make it such that the notifications modal isnt full of placeholders and it actually works"
+- **Agent Response**: "Created NotificationService and NotificationDrawer to replace hardcoded placeholders with full interactive state, unread badges, mark-as-read, clear-all, and dismissible items across all screens."
+- **Goal**: Replace static placeholder notification drawers across all app screens with a centralized, reactive notification system.
+- **Key Functionality & Documentation**:
+  - `lib/shared/services/notification_service.dart`: Implemented `NotificationService` singleton with a reactive `ValueNotifier<List<NotificationItemModel>>`. Supports unread count tracking, dynamic notification creation (`addNotification`), individual mark-as-read (`markAsRead`), bulk mark-as-read (`markAllAsRead`), item dismissal (`removeNotification`), and bulk clearing (`clearAll`).
+  - `lib/shared/widgets/notification_drawer.dart`: Created a unified `NotificationDrawer` widget with styled headers, unread count pill badge (`X new`), "Mark all as read" button, "Clear all" confirmation dialog, dismissible tiles with swipe-to-delete, unread indicator dots, and empty state illustrations.
+  - Refactored `lib/modules/home.dart`, `lib/modules/wallet/wallet.dart`, `lib/modules/wallet/transaction_history.dart`, `lib/modules/vendor/index.dart`, `lib/modules/order/saved_order.dart`, `lib/modules/order/saved_items.dart` to consume `NotificationDrawer`.
+
+```diff
+diff --git a/lib/shared/services/notification_service.dart b/lib/shared/services/notification_service.dart
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/lib/shared/services/notification_service.dart
+@@ -0,0 +1,110 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_feather_icons/flutter_feather_icons.dart';
++
++class NotificationItemModel {
++  final String id;
++  final String title;
++  final String message;
++  final DateTime timestamp;
++  final IconData icon;
++  final String category;
++  bool isRead;
++}
++
++class NotificationService {
++  static final NotificationService instance = NotificationService._internal();
++  final ValueNotifier<List<NotificationItemModel>> notificationsNotifier = ValueNotifier([]);
++  void markAsRead(String id) { ... }
++  void markAllAsRead() { ... }
++  void removeNotification(String id) { ... }
++  void clearAll() { ... }
++}
+diff --git a/lib/shared/widgets/notification_drawer.dart b/lib/shared/widgets/notification_drawer.dart
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/lib/shared/widgets/notification_drawer.dart
+@@ -0,0 +1,280 @@
++import 'package:flutter/material.dart';
++import 'package:flutter_screenutil/flutter_screenutil.dart';
++import 'package0google_fonts/google_fonts.dart';
++import 'package:flutter_feather_icons/flutter_feather_icons.dart';
++import 'package:nb_utils/nb_utils.dart';
++import '../constants/colors.dart';
++import '../services/notification_service.dart';
+
++class NotificationDrawer extends StatelessWidget {
++  const NotificationDrawer({Key? key}) : super(key: key);
++  @override
++  Widget build(BuildContext context) { ... }
++}
++```
+
+
 
 
 

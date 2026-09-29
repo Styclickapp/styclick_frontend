@@ -14,6 +14,7 @@ import 'package:stylclick/shared/constants/images.dart';
 import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
+import 'package:stylclick/shared/widgets/notification_drawer.dart';
 import 'package:stylclick/shared/widgets/app_drawer.dart';
 import 'package:stylclick/modules/auth/login.dart';
 import 'package:stylclick/modules/vendor/index.dart';
@@ -349,27 +350,6 @@ class _WalletPageState extends State<WalletPage> {
 
 
   Widget buildNotificationDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Text('Notifications', style: TextStyle(fontFamily: 'Cinta', fontSize: 24.sp, color: primary, fontWeight: FontWeight.w700, letterSpacing: -1.0)),
-            ),
-            20.height,
-            Padding(padding: EdgeInsets.symmetric(horizontal: 24.w), child: Divider(color: sand, thickness: 1)),
-            Expanded(
-              child: Center(
-                child: Text('No notifications yet', style: TextStyle(fontFamily: 'Cinta', fontSize: 14.sp, color: textLight)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const NotificationDrawer();
   }
 }

@@ -16,6 +16,7 @@ import 'package:stylclick/modules/settings.dart';
 import 'package:stylclick/modules/share_earn.dart';
 import 'package:stylclick/shared/widgets/nav.dart';
 import 'package:stylclick/shared/widgets/app_drawer.dart';
+import 'package:stylclick/shared/widgets/notification_drawer.dart';
 import 'package:stylclick/modules/auth/login.dart';
 import 'package:stylclick/shared/constants/strings.dart';
 
@@ -237,90 +238,6 @@ class _VendorPageState extends State<VendorPage> {
   }
 
   Widget buildNotificationDrawer(BuildContext context) {
-    return Drawer(
-      child: Container(
-        decoration: const BoxDecoration(color: cream),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            60.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Text(
-                'Notifications',
-                style: TextStyle(
-                  fontFamily: 'Cinta',
-                  fontSize: 24.sp,
-                  color: primary,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -1.0,
-                ),
-              ),
-            ),
-            20.height,
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w),
-              child: Divider(color: sand, thickness: 1),
-            ),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                children: [
-                  _buildNotificationItem('Order Confirmed', 'Your Aso-ebi order #4290 has been received.', '2m ago', FeatherIcons.checkCircle),
-                  _buildNotificationItem('Promotion', 'Get 20% off on all Ankara materials this weekend!', '1h ago', FeatherIcons.tag),
-                  _buildNotificationItem('Update', 'Your measurements have been successfully updated.', '5h ago', FeatherIcons.user),
-                  _buildNotificationItem('Payment Successful', 'Wallet top-up of NGN 50,000 successful.', 'Yesterday', FeatherIcons.creditCard),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotificationItem(String title, String sub, String time, IconData icon) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 16.h),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(
-              color: white,
-              shape: BoxShape.circle,
-              border: Border.all(color: sand),
-            ),
-            child: Icon(icon, color: primary, size: 20.sp),
-          ),
-          16.width,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(fontFamily: 'Cinta', fontSize: 14.sp, color: ink, fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    8.width,
-                    Text(time, style: GoogleFonts.montserrat(fontSize: 10.sp, color: textLight)),
-                  ],
-                ),
-                4.height,
-                Text(sub, style: TextStyle(fontFamily: 'Cinta', fontSize: 12.sp, color: textLight)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const NotificationDrawer();
   }
 }
